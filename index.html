@@ -1,0 +1,1614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1f2e" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Zepbound" />
+  <title>Zepbound Tracker</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── TOKENS ── */
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1f2e;
+      --surface2:  #232940;
+      --border:    #2e3450;
+      --accent:    #6c8aff;
+      --accent2:   #a78bfa;
+      --success:   #34d399;
+      --warn:      #fbbf24;
+      --danger:    #f87171;
+      --text:      #e8eaf0;
+      --muted:     #7880a0;
+      --mono:      'DM Mono', monospace;
+      --sans:      'Inter', sans-serif;
+      --radius:    12px;
+      --radius-sm: 8px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bot: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      overscroll-behavior: none;
+    }
+
+    /* ── SHELL ── */
+    #app { display: flex; flex-direction: column; min-height: 100dvh; }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: calc(var(--safe-top) + 12px) 16px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-family: var(--mono);
+      font-size: 1.1rem;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+    }
+
+    .logo span { color: var(--accent2); }
+
+    .header-date {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    main { flex: 1; padding: 16px; padding-bottom: calc(80px + var(--safe-bot)); }
+
+    /* ── BOTTOM NAV ── */
+    nav {
+      position: fixed;
+      bottom: 0;
+      left: 0; right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      padding-bottom: var(--safe-bot);
+      z-index: 100;
+    }
+
+    .nav-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 10px 4px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.6rem;
+      font-family: var(--sans);
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+
+    .nav-btn.active { color: var(--accent); }
+    .nav-btn svg { width: 22px; height: 22px; }
+
+    /* ── VIEWS ── */
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      font-size: 0.7rem;
+      font-family: var(--mono);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+
+    /* ── TODAY RINGS ── */
+    .rings-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .ring-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .ring-svg { width: 56px; height: 56px; }
+    .ring-track { fill: none; stroke: var(--border); stroke-width: 5; }
+    .ring-fill  { fill: none; stroke-width: 5; stroke-linecap: round;
+                  transform: rotate(-90deg); transform-origin: 50% 50%;
+                  transition: stroke-dashoffset 0.5s ease; }
+
+    .ring-center {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      fill: var(--text);
+      dominant-baseline: middle;
+      text-anchor: middle;
+    }
+
+    .ring-label {
+      font-size: 0.62rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* ── LOG FORM ── */
+    .section-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+
+    .field-group { margin-bottom: 14px; }
+
+    label {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    input[type="number"],
+    input[type="date"],
+    input[type="text"],
+    select,
+    textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      padding: 10px 12px;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+    }
+
+    textarea { resize: vertical; min-height: 72px; }
+
+    /* stepper */
+    .stepper {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .stepper button {
+      width: 42px; height: 42px;
+      background: var(--surface2);
+      border: none;
+      color: var(--text);
+      font-size: 1.2rem;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .stepper input {
+      border: none;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      border-radius: 0;
+      text-align: center;
+      flex: 1;
+    }
+
+    /* slider */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+      border: none;
+      padding: 0;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+
+    .slider-val {
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      color: var(--accent);
+      min-width: 24px;
+      text-align: right;
+    }
+
+    /* checkbox pills */
+    .pill-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: 0.78rem;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s;
+    }
+
+    .pill.on {
+      border-color: var(--accent2);
+      background: rgba(167,139,250,0.15);
+      color: var(--accent2);
+    }
+
+    /* section divider */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0;
+    }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 13px;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-family: var(--sans);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    .btn:active { opacity: 0.8; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-ghost   { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-danger  { background: rgba(248,113,113,0.15); color: var(--danger); border: 1px solid rgba(248,113,113,0.3); }
+    .btn-sm      { padding: 8px 14px; font-size: 0.8rem; width: auto; display: inline-block; }
+
+    /* ── STATS ── */
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label { font-size: 0.82rem; color: var(--muted); }
+    .stat-val   { font-family: var(--mono); font-size: 0.9rem; color: var(--text); }
+
+    /* ── PROGRESS BARS ── */
+    .bar-wrap { margin-bottom: 10px; }
+    .bar-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .bar-name  { font-size: 0.78rem; color: var(--muted); }
+    .bar-nums  { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
+
+    .bar-track {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+
+    /* ── CHART ── */
+    .chart-wrap { overflow-x: auto; }
+    canvas { display: block; max-width: 100%; }
+
+    /* ── HISTORY TABLE ── */
+    .history-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .history-item {
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      border-left: 3px solid var(--accent);
+    }
+
+    .history-item.injection { border-left-color: var(--accent2); }
+    .history-item.weight    { border-left-color: var(--success); }
+
+    .hi-date { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); margin-bottom: 4px; }
+    .hi-body { font-size: 0.82rem; color: var(--text); }
+
+    /* ── INJECT BADGE ── */
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 0.68rem;
+      font-family: var(--mono);
+    }
+
+    .badge-purple { background: rgba(167,139,250,0.2); color: var(--accent2); }
+    .badge-green  { background: rgba(52,211,153,0.2);  color: var(--success); }
+    .badge-red    { background: rgba(248,113,113,0.2);  color: var(--danger); }
+    .badge-yellow { background: rgba(251,191,36,0.2);   color: var(--warn); }
+
+    /* ── EMPTY STATE ── */
+    .empty {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .empty svg { margin-bottom: 12px; opacity: 0.3; }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: calc(80px + var(--safe-bot) + 12px);
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--success);
+      color: #000;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      opacity: 0;
+      transition: all 0.25s;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 999;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      align-items: flex-end;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-radius: var(--radius) var(--radius) 0 0;
+      padding: 20px 16px calc(20px + var(--safe-bot));
+      width: 100%;
+      max-height: 80dvh;
+      overflow-y: auto;
+    }
+
+    .modal-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    /* weight big display */
+    .weight-hero {
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    .weight-hero .val {
+      font-family: var(--mono);
+      font-size: 3.5rem;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .weight-hero .unit {
+      font-size: 1rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .weight-hero .delta {
+      font-family: var(--mono);
+      font-size: 1rem;
+      margin-top: 8px;
+    }
+
+    .delta-neg { color: var(--success); }
+    .delta-pos { color: var(--danger); }
+    .delta-zero { color: var(--muted); }
+
+    /* tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      padding: 4px;
+      margin-bottom: 16px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 8px 4px;
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-family: var(--sans);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .tab.active {
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* meal entry row */
+    .entry-row {
+      display: grid;
+      grid-template-columns: 1fr 60px 60px 60px 36px;
+      gap: 6px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+
+    .entry-row input {
+      padding: 8px;
+      font-size: 0.8rem;
+    }
+
+    .entry-row .del-btn {
+      width: 32px; height: 36px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--danger);
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .col-headers {
+      display: grid;
+      grid-template-columns: 1fr 60px 60px 60px 36px;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .col-h {
+      font-size: 0.62rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      text-transform: uppercase;
+    }
+
+    /* settings section */
+    .settings-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .settings-row:last-child { border-bottom: none; }
+
+    .settings-label { font-size: 0.85rem; }
+    .settings-sub   { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
+    .settings-val {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">ZEP<span>TRACK</span></div>
+    <div class="header-date" id="hdrDate"></div>
+  </header>
+
+  <main>
+    <!-- TODAY VIEW -->
+    <div class="view active" id="v-today">
+      <div class="card">
+        <div class="card-title">Today's Progress</div>
+        <div class="rings-grid" id="rings"></div>
+        <div id="today-bars"></div>
+      </div>
+
+      <div class="card" id="weight-card">
+        <div class="card-title">Weight</div>
+        <div class="weight-hero" id="weight-hero"></div>
+        <button class="btn btn-ghost btn-sm" onclick="openWeightModal()">Log Weight</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Today's Meals</div>
+        <div id="meal-summary-today"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="showView('v-log'); showLogTab('meals')">+ Add Meal</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Exercise</div>
+        <div id="exercise-summary-today"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="showView('v-log'); showLogTab('exercise')">+ Log Exercise</button>
+      </div>
+
+      <div class="card" id="water-quick-card">
+        <div class="card-title">Water</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div>
+            <span id="water-today-val" style="font-family:var(--mono);font-size:2rem;color:#38bdf8">0</span>
+            <span style="font-size:0.8rem;color:var(--muted)"> / 64 oz</span>
+          </div>
+          <div style="width:64px;height:64px">
+            <svg viewBox="0 0 56 56" style="width:64px;height:64px">
+              <circle class="ring-track" cx="28" cy="28" r="23"/>
+              <circle id="water-ring" class="ring-fill" cx="28" cy="28" r="23"
+                stroke="#38bdf8" stroke-dasharray="144.51" stroke-dashoffset="144.51"/>
+            </svg>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+          <button class="btn btn-ghost" style="padding:10px 0;font-size:0.78rem;font-family:var(--mono)" onclick="addWater(8)">+8oz</button>
+          <button class="btn btn-ghost" style="padding:10px 0;font-size:0.78rem;font-family:var(--mono)" onclick="addWater(16)">+16oz</button>
+          <button class="btn btn-ghost" style="padding:10px 0;font-size:0.78rem;font-family:var(--mono)" onclick="addWater(20)">+20oz</button>
+          <button class="btn btn-ghost" style="padding:10px 0;font-size:0.78rem;font-family:var(--mono)" onclick="addWater(32)">+32oz</button>
+        </div>
+      </div>
+
+      <div id="injection-card-today"></div>
+    </div>
+
+    <!-- LOG VIEW -->
+    <div class="view" id="v-log">
+      <div class="tabs">
+        <button class="tab active" onclick="showLogTab('meals')">Meals</button>
+        <button class="tab" onclick="showLogTab('exercise')">Exercise</button>
+        <button class="tab" onclick="showLogTab('daily')">Daily</button>
+        <button class="tab" onclick="showLogTab('injection')">Injection</button>
+      </div>
+
+      <!-- MEALS TAB -->
+      <div id="tab-meals">
+        <div class="card">
+          <div class="card-title">Log Meal</div>
+          <div class="field-group">
+            <label>Date</label>
+            <input type="date" id="meal-date" />
+          </div>
+          <div class="field-group">
+            <label>Meal Type</label>
+            <select id="meal-type">
+              <option value="breakfast">Breakfast</option>
+              <option value="lunch">Lunch</option>
+              <option value="dinner">Dinner</option>
+              <option value="snack">Snack</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <div class="col-headers">
+              <div class="col-h">Item</div>
+              <div class="col-h">Cal</div>
+              <div class="col-h">Pro(g)</div>
+              <div class="col-h">Fib(g)</div>
+              <div class="col-h"></div>
+            </div>
+            <div id="meal-rows"></div>
+            <button class="btn btn-ghost btn-sm" onclick="addMealRow()" style="margin-top:6px">+ Item</button>
+          </div>
+          <div class="divider"></div>
+          <div id="meal-totals" style="font-family:var(--mono);font-size:0.82rem;color:var(--muted);margin-bottom:12px"></div>
+          <button class="btn btn-primary" onclick="saveMeal()">Save Meal</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Today's Meals</div>
+          <div id="todays-meals-log"></div>
+        </div>
+      </div>
+
+      <!-- EXERCISE TAB -->
+      <div id="tab-exercise" style="display:none">
+        <div class="card">
+          <div class="card-title">Log Exercise</div>
+          <div class="field-group">
+            <label>Date</label>
+            <input type="date" id="ex-date" />
+          </div>
+          <div class="field-group">
+            <label>Type</label>
+            <div class="pill-group" id="exercise-type-pills">
+              <div class="pill on" data-val="walking">🚶 Walking</div>
+              <div class="pill" data-val="cardio">🏃 Cardio</div>
+              <div class="pill" data-val="weights">🏋️ Weights</div>
+              <div class="pill" data-val="other">Other</div>
+            </div>
+          </div>
+          <div class="field-group">
+            <label>Duration (minutes)</label>
+            <div class="stepper">
+              <button onclick="step('ex-duration',-5)">−</button>
+              <input type="number" id="ex-duration" value="30" min="1" />
+              <button onclick="step('ex-duration',5)">+</button>
+            </div>
+          </div>
+          <div class="field-group" id="steps-field">
+            <label>Steps (optional)</label>
+            <input type="number" id="ex-steps" placeholder="e.g. 4500" />
+          </div>
+          <div class="field-group">
+            <label>Notes (optional)</label>
+            <textarea id="ex-notes" placeholder="Distance, intensity, etc."></textarea>
+          </div>
+          <button class="btn btn-primary" onclick="saveExercise()">Save Exercise</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Today's Exercise</div>
+          <div id="todays-exercise-log"></div>
+        </div>
+      </div>
+
+      <!-- DAILY TAB -->
+      <div id="tab-daily" style="display:none">
+        <div class="card">
+          <div class="card-title">Daily Check-In</div>
+          <div class="field-group">
+            <label>Date</label>
+            <input type="date" id="daily-date" />
+          </div>
+          <div class="field-group">
+            <label>Water (oz)</label>
+            <div class="stepper">
+              <button onclick="step('water-oz',-8)">−</button>
+              <input type="number" id="water-oz" value="0" min="0" />
+              <button onclick="step('water-oz',8)">+</button>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="field-group">
+            <label>Energy Level — <span id="energy-disp">5</span>/10</label>
+            <div class="slider-row">
+              <input type="range" id="energy-slider" min="1" max="10" value="5"
+                     oninput="document.getElementById('energy-disp').textContent=this.value" />
+            </div>
+          </div>
+          <div class="field-group">
+            <label>Mood — <span id="mood-disp">5</span>/10</label>
+            <div class="slider-row">
+              <input type="range" id="mood-slider" min="1" max="10" value="5"
+                     oninput="document.getElementById('mood-disp').textContent=this.value" />
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="field-group">
+            <label>Side Effects</label>
+            <div class="pill-group" id="side-effect-pills">
+              <div class="pill" data-val="nausea">Nausea</div>
+              <div class="pill" data-val="fatigue">Fatigue</div>
+              <div class="pill" data-val="reduced-appetite">Low Appetite</div>
+              <div class="pill" data-val="headache">Headache</div>
+              <div class="pill" data-val="constipation">Constipation</div>
+              <div class="pill" data-val="diarrhea">Diarrhea</div>
+              <div class="pill" data-val="none">None</div>
+            </div>
+          </div>
+          <div class="field-group">
+            <label>Notes</label>
+            <textarea id="daily-notes" placeholder="How are you feeling today?"></textarea>
+          </div>
+          <button class="btn btn-primary" onclick="saveDailyCheckin()">Save Check-In</button>
+        </div>
+      </div>
+
+      <!-- INJECTION TAB -->
+      <div id="tab-injection" style="display:none">
+        <div class="card">
+          <div class="card-title">Log Zepbound Injection</div>
+          <div class="field-group">
+            <label>Date</label>
+            <input type="date" id="inj-date" />
+          </div>
+          <div class="field-group">
+            <label>Dose</label>
+            <select id="inj-dose">
+              <option value="2.5mg">2.5 mg (starter)</option>
+              <option value="5mg">5 mg</option>
+              <option value="7.5mg">7.5 mg</option>
+              <option value="10mg">10 mg</option>
+              <option value="12.5mg">12.5 mg</option>
+              <option value="15mg">15 mg</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Injection Site</label>
+            <div class="pill-group" id="inj-site-pills">
+              <div class="pill on" data-val="abdomen">Abdomen</div>
+              <div class="pill" data-val="thigh-l">Thigh (L)</div>
+              <div class="pill" data-val="thigh-r">Thigh (R)</div>
+              <div class="pill" data-val="arm-l">Arm (L)</div>
+              <div class="pill" data-val="arm-r">Arm (R)</div>
+            </div>
+          </div>
+          <div class="field-group">
+            <label>Notes</label>
+            <textarea id="inj-notes" placeholder="Reactions, reminders, etc."></textarea>
+          </div>
+          <button class="btn btn-primary" onclick="saveInjection()">Save Injection</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Injection History</div>
+          <div id="injection-history"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROGRESS VIEW -->
+    <div class="view" id="v-progress">
+      <div class="tabs">
+        <button class="tab active" onclick="showProgressTab('weight')">Weight</button>
+        <button class="tab" onclick="showProgressTab('nutrition')">Nutrition</button>
+        <button class="tab" onclick="showProgressTab('wellness')">Wellness</button>
+      </div>
+
+      <div id="ptab-weight">
+        <div class="card">
+          <div class="card-title">Weight History</div>
+          <div class="chart-wrap"><canvas id="weight-chart" height="200"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Stats</div>
+          <div id="weight-stats"></div>
+        </div>
+      </div>
+
+      <div id="ptab-nutrition" style="display:none">
+        <div class="card">
+          <div class="card-title">7-Day Averages vs Goals</div>
+          <div id="nutrition-averages"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Calories (30 days)</div>
+          <div class="chart-wrap"><canvas id="cal-chart" height="180"></canvas></div>
+        </div>
+      </div>
+
+      <div id="ptab-wellness" style="display:none">
+        <div class="card">
+          <div class="card-title">Energy & Mood (14 days)</div>
+          <div class="chart-wrap"><canvas id="wellness-chart" height="180"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Side Effect Frequency</div>
+          <div id="side-effect-freq"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY VIEW -->
+    <div class="view" id="v-history">
+      <div class="card">
+        <div class="card-title">Log History</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm hist-filter active" data-filter="all">All</button>
+          <button class="btn btn-ghost btn-sm hist-filter" data-filter="weight">Weight</button>
+          <button class="btn btn-ghost btn-sm hist-filter" data-filter="meal">Meals</button>
+          <button class="btn btn-ghost btn-sm hist-filter" data-filter="exercise">Exercise</button>
+          <button class="btn btn-ghost btn-sm hist-filter" data-filter="injection">Injection</button>
+          <button class="btn btn-ghost btn-sm hist-filter" data-filter="daily">Daily</button>
+        </div>
+        <div class="history-list" id="history-list"></div>
+      </div>
+    </div>
+  </main>
+
+  <nav>
+    <button class="nav-btn active" onclick="showView('v-today')" id="nav-today">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      Today
+    </button>
+    <button class="nav-btn" onclick="showView('v-log')" id="nav-log">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+      Log
+    </button>
+    <button class="nav-btn" onclick="showView('v-progress')" id="nav-progress">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+      Progress
+    </button>
+    <button class="nav-btn" onclick="showView('v-history')" id="nav-history">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      History
+    </button>
+  </nav>
+</div>
+
+<!-- Weight Modal -->
+<div class="modal-overlay" id="weight-modal">
+  <div class="modal">
+    <div class="modal-title">Log Weight</div>
+    <div class="field-group">
+      <label>Date</label>
+      <input type="date" id="wt-date" />
+    </div>
+    <div class="field-group">
+      <label>Weight (lbs)</label>
+      <input type="number" id="wt-val" placeholder="e.g. 215.4" step="0.1" />
+    </div>
+    <div class="field-group">
+      <label>Notes (optional)</label>
+      <input type="text" id="wt-notes" placeholder="Morning, post-workout, etc." />
+    </div>
+    <button class="btn btn-primary" onclick="saveWeight()" style="margin-bottom:10px">Save</button>
+    <button class="btn btn-ghost" onclick="closeWeightModal()">Cancel</button>
+  </div>
+</div>
+
+<div id="toast">Saved!</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════════════════
+const DB = {
+  get(key) {
+    try { return JSON.parse(localStorage.getItem('zep_' + key) || 'null'); } catch { return null; }
+  },
+  set(key, val) {
+    localStorage.setItem('zep_' + key, JSON.stringify(val));
+  },
+  push(key, item) {
+    const arr = this.get(key) || [];
+    arr.push(item);
+    this.set(key, arr);
+  }
+};
+
+// DEFAULTS
+const GOALS = {
+  calories: 1600,
+  protein:  120,
+  fiber:    25,
+  water:    64,   // oz
+  steps:    8000
+};
+
+// ═══════════════════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════════════════
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const map = {'v-today':'nav-today','v-log':'nav-log','v-progress':'nav-progress','v-history':'nav-history'};
+  if (map[id]) document.getElementById(map[id]).classList.add('active');
+  if (id === 'v-today')    renderToday();
+  if (id === 'v-progress') renderProgress();
+  if (id === 'v-history')  renderHistory('all');
+}
+
+function showLogTab(tab) {
+  ['meals','exercise','daily','injection'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === tab ? 'block' : 'none';
+  });
+  document.querySelectorAll('#v-log .tab').forEach((b,i) => {
+    const tabs = ['meals','exercise','daily','injection'];
+    b.classList.toggle('active', tabs[i] === tab);
+  });
+  if (tab === 'meals')     renderTodaysMealsLog();
+  if (tab === 'exercise')  renderTodaysExerciseLog();
+  if (tab === 'injection') renderInjectionHistory();
+}
+
+function showProgressTab(tab) {
+  ['weight','nutrition','wellness'].forEach(t => {
+    document.getElementById('ptab-' + t).style.display = t === tab ? 'block' : 'none';
+  });
+  document.querySelectorAll('#v-progress .tab').forEach((b,i) => {
+    const tabs = ['weight','nutrition','wellness'];
+    b.classList.toggle('active', tabs[i] === tab);
+  });
+  if (tab === 'weight')    drawWeightChart();
+  if (tab === 'nutrition') renderNutritionProgress();
+  if (tab === 'wellness')  drawWellnessChart();
+}
+
+// ═══════════════════════════════════════════════════════
+// TODAY
+// ═══════════════════════════════════════════════════════
+function today() { return new Date().toISOString().split('T')[0]; }
+
+function renderToday() {
+  // header date
+  const d = new Date();
+  document.getElementById('hdrDate').textContent =
+    d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+
+  const todayStr = today();
+  const meals = (DB.get('meals') || []).filter(m => m.date === todayStr);
+  const exercise = (DB.get('exercise') || []).filter(e => e.date === todayStr);
+  const daily = (DB.get('daily') || []).find(d => d.date === todayStr);
+
+  // totals
+  let totalCal = 0, totalPro = 0, totalFib = 0;
+  meals.forEach(m => { totalCal += m.cal||0; totalPro += m.protein||0; totalFib += m.fiber||0; });
+  const water = daily ? daily.water : 0;
+  const steps = exercise.filter(e=>e.type==='walking').reduce((a,e)=>a+(e.steps||0),0);
+
+  // update water quick-add card
+  setTimeout(updateWaterDisplay, 0);
+
+  // rings
+  const ringData = [
+    { label: 'Cal',     val: totalCal, goal: GOALS.calories, color: '#6c8aff' },
+    { label: 'Protein', val: totalPro,  goal: GOALS.protein,  color: '#a78bfa' },
+    { label: 'Water',   val: water,     goal: GOALS.water,    color: '#38bdf8' },
+    { label: 'Fiber',   val: totalFib,  goal: GOALS.fiber,    color: '#34d399' },
+  ];
+
+  const r = 23, circ = 2 * Math.PI * r;
+  document.getElementById('rings').innerHTML = ringData.map(rd => {
+    const pct = Math.min(rd.val / rd.goal, 1);
+    const offset = circ * (1 - pct);
+    const display = rd.val >= 1000 ? Math.round(rd.val/100)/10+'k' : Math.round(rd.val);
+    return `<div class="ring-wrap">
+      <svg class="ring-svg" viewBox="0 0 56 56">
+        <circle class="ring-track" cx="28" cy="28" r="${r}"/>
+        <circle class="ring-fill" cx="28" cy="28" r="${r}"
+          stroke="${rd.color}"
+          stroke-dasharray="${circ}"
+          stroke-dashoffset="${offset}"/>
+        <text class="ring-center" x="28" y="29">${display}</text>
+      </svg>
+      <div class="ring-label">${rd.label}<br/><span style="color:var(--text)">${rd.goal >= 1000 ? Math.round(rd.goal/100)/10+'k' : rd.goal}</span></div>
+    </div>`;
+  }).join('');
+
+  // bars
+  document.getElementById('today-bars').innerHTML = ringData.map(rd => {
+    const pct = Math.min((rd.val / rd.goal) * 100, 100);
+    return `<div class="bar-wrap">
+      <div class="bar-header">
+        <span class="bar-name">${rd.label}</span>
+        <span class="bar-nums">${Math.round(rd.val)} / ${rd.goal}</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${rd.color}"></div></div>
+    </div>`;
+  }).join('');
+
+  // weight
+  const weights = DB.get('weights') || [];
+  const wh = document.getElementById('weight-hero');
+  if (weights.length === 0) {
+    wh.innerHTML = `<div class="unit" style="padding:10px">No weight logged yet</div>`;
+  } else {
+    const latest = weights[weights.length - 1];
+    const first  = weights[0];
+    const delta  = latest.weight - first.weight;
+    const cls    = delta < 0 ? 'delta-neg' : delta > 0 ? 'delta-pos' : 'delta-zero';
+    const sign   = delta <= 0 ? '' : '+';
+    wh.innerHTML = `
+      <div class="val">${latest.weight}</div>
+      <div class="unit">lbs · ${latest.date}</div>
+      <div class="delta ${cls}">${sign}${delta.toFixed(1)} lbs from start</div>`;
+  }
+
+  // meals summary
+  const ms = document.getElementById('meal-summary-today');
+  if (meals.length === 0) {
+    ms.innerHTML = `<div style="color:var(--muted);font-size:0.82rem">Nothing logged</div>`;
+  } else {
+    ms.innerHTML = meals.map(m =>
+      `<div class="stat-row">
+        <span class="stat-label">${cap(m.mealType)}</span>
+        <span class="stat-val">${m.cal} cal · ${m.protein}g pro</span>
+      </div>`
+    ).join('');
+  }
+
+  // exercise summary
+  const es = document.getElementById('exercise-summary-today');
+  if (exercise.length === 0) {
+    es.innerHTML = `<div style="color:var(--muted);font-size:0.82rem">Nothing logged</div>`;
+  } else {
+    es.innerHTML = exercise.map(e =>
+      `<div class="stat-row">
+        <span class="stat-label">${cap(e.type)}</span>
+        <span class="stat-val">${e.duration} min${e.steps ? ' · '+e.steps+' steps' : ''}</span>
+      </div>`
+    ).join('');
+  }
+
+  // injection card
+  const injections = DB.get('injections') || [];
+  const lastInj = injections.length ? injections[injections.length - 1] : null;
+  const injCard = document.getElementById('injection-card-today');
+  if (lastInj) {
+    const daysSince = Math.floor((new Date() - new Date(lastInj.date)) / 86400000);
+    injCard.innerHTML = `<div class="card">
+      <div class="card-title">Last Injection</div>
+      <div class="stat-row">
+        <span class="stat-label">Dose</span>
+        <span class="stat-val"><span class="badge badge-purple">${lastInj.dose}</span></span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Date</span>
+        <span class="stat-val">${lastInj.date}</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Days ago</span>
+        <span class="stat-val ${daysSince >= 7 ? 'delta-pos' : ''}">${daysSince}d</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="showView('v-log');showLogTab('injection')">Log Next Injection</button>
+    </div>`;
+  } else {
+    injCard.innerHTML = `<div class="card">
+      <div class="card-title">Injections</div>
+      <div style="color:var(--muted);font-size:0.82rem;margin-bottom:8px">No injections logged yet</div>
+      <button class="btn btn-ghost btn-sm" onclick="showView('v-log');showLogTab('injection')">Log First Injection</button>
+    </div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// WEIGHT
+// ═══════════════════════════════════════════════════════
+function openWeightModal() {
+  document.getElementById('wt-date').value = today();
+  document.getElementById('wt-val').value = '';
+  document.getElementById('wt-notes').value = '';
+  document.getElementById('weight-modal').classList.add('open');
+}
+
+function closeWeightModal() {
+  document.getElementById('weight-modal').classList.remove('open');
+}
+
+function saveWeight() {
+  const d = document.getElementById('wt-date').value;
+  const w = parseFloat(document.getElementById('wt-val').value);
+  if (!w || w < 50 || w > 600) { alert('Enter a valid weight'); return; }
+  DB.push('weights', { date: d, weight: w, notes: document.getElementById('wt-notes').value });
+  closeWeightModal();
+  showToast('Weight saved!');
+  renderToday();
+}
+
+// ═══════════════════════════════════════════════════════
+// MEALS
+// ═══════════════════════════════════════════════════════
+let mealRows = [];
+
+function addMealRow(name='', cal='', protein='', fiber='') {
+  const id = Date.now() + Math.random();
+  mealRows.push(id);
+  const row = document.createElement('div');
+  row.className = 'entry-row';
+  row.id = 'mr-' + id;
+  row.innerHTML = `
+    <input type="text" placeholder="Food item" value="${name}" class="mr-name" oninput="updateMealTotals()" />
+    <input type="number" placeholder="0" value="${cal}" class="mr-cal" oninput="updateMealTotals()" min="0" />
+    <input type="number" placeholder="0" value="${protein}" class="mr-pro" oninput="updateMealTotals()" min="0" />
+    <input type="number" placeholder="0" value="${fiber}" class="mr-fib" oninput="updateMealTotals()" min="0" />
+    <button class="del-btn" onclick="removeMealRow('${id}')">×</button>`;
+  document.getElementById('meal-rows').appendChild(row);
+  updateMealTotals();
+}
+
+function removeMealRow(id) {
+  document.getElementById('mr-' + id)?.remove();
+  mealRows = mealRows.filter(r => r !== id);
+  updateMealTotals();
+}
+
+function updateMealTotals() {
+  let cal = 0, pro = 0, fib = 0;
+  document.querySelectorAll('.mr-cal').forEach(i => cal += parseFloat(i.value)||0);
+  document.querySelectorAll('.mr-pro').forEach(i => pro += parseFloat(i.value)||0);
+  document.querySelectorAll('.mr-fib').forEach(i => fib += parseFloat(i.value)||0);
+  document.getElementById('meal-totals').textContent =
+    `Total: ${Math.round(cal)} cal · ${Math.round(pro)}g protein · ${Math.round(fib)}g fiber`;
+}
+
+function saveMeal() {
+  let cal = 0, pro = 0, fib = 0;
+  const items = [];
+  document.querySelectorAll('.entry-row').forEach(row => {
+    const name = row.querySelector('.mr-name')?.value.trim();
+    const c = parseFloat(row.querySelector('.mr-cal')?.value)||0;
+    const p = parseFloat(row.querySelector('.mr-pro')?.value)||0;
+    const f = parseFloat(row.querySelector('.mr-fib')?.value)||0;
+    if (name) { cal+=c; pro+=p; fib+=f; items.push({name,cal:c,protein:p,fiber:f}); }
+  });
+  if (!items.length) { alert('Add at least one food item'); return; }
+  const mealDate = document.getElementById('meal-date').value || today();
+  DB.push('meals', {
+    date: mealDate, mealType: document.getElementById('meal-type').value,
+    items, cal: Math.round(cal), protein: Math.round(pro), fiber: Math.round(fib),
+    ts: Date.now()
+  });
+  // clear
+  document.getElementById('meal-rows').innerHTML = '';
+  mealRows = [];
+  addMealRow();
+  showToast('Meal saved!');
+  renderTodaysMealsLog();
+}
+
+function renderTodaysMealsLog() {
+  const meals = (DB.get('meals') || []).filter(m => m.date === today());
+  const el = document.getElementById('todays-meals-log');
+  if (!meals.length) { el.innerHTML = `<div class="empty">No meals logged today</div>`; return; }
+  el.innerHTML = meals.map(m => `
+    <div style="border-bottom:1px solid var(--border);padding:10px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <strong style="font-size:0.85rem">${cap(m.mealType)}</strong>
+        <span style="font-family:var(--mono);font-size:0.78rem;color:var(--muted)">${m.cal} cal</span>
+      </div>
+      ${m.items.map(i => `<div style="font-size:0.78rem;color:var(--muted);padding:1px 0">${i.name}${i.cal ? ' · '+i.cal+' cal' : ''}</div>`).join('')}
+    </div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// EXERCISE
+// ═══════════════════════════════════════════════════════
+function saveExercise() {
+  const type = document.querySelector('#exercise-type-pills .pill.on')?.dataset.val || 'walking';
+  const duration = parseInt(document.getElementById('ex-duration').value) || 0;
+  const steps = parseInt(document.getElementById('ex-steps').value) || 0;
+  const notes = document.getElementById('ex-notes').value;
+  if (!duration) { alert('Enter duration'); return; }
+  const exDate = document.getElementById('ex-date').value || today();
+  DB.push('exercise', { date: exDate, type, duration, steps, notes, ts: Date.now() });
+  document.getElementById('ex-duration').value = 30;
+  document.getElementById('ex-steps').value = '';
+  document.getElementById('ex-notes').value = '';
+  showToast('Exercise saved!');
+  renderTodaysExerciseLog();
+}
+
+function renderTodaysExerciseLog() {
+  const ex = (DB.get('exercise') || []).filter(e => e.date === today());
+  const el = document.getElementById('todays-exercise-log');
+  if (!ex.length) { el.innerHTML = `<div class="empty">No exercise logged today</div>`; return; }
+  el.innerHTML = ex.map(e => `
+    <div class="stat-row">
+      <span class="stat-label">${cap(e.type)} · ${e.duration}min${e.steps?' · '+e.steps+' steps':''}</span>
+    </div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// DAILY CHECK-IN
+// ═══════════════════════════════════════════════════════
+function saveDailyCheckin() {
+  const dailyDate = document.getElementById('daily-date').value || today();
+  const water  = parseFloat(document.getElementById('water-oz').value) || 0;
+  const energy = parseInt(document.getElementById('energy-slider').value);
+  const mood   = parseInt(document.getElementById('mood-slider').value);
+  const sideEffects = [...document.querySelectorAll('#side-effect-pills .pill.on')].map(p => p.dataset.val);
+  const notes  = document.getElementById('daily-notes').value;
+
+  // upsert selected date
+  let dailys = DB.get('daily') || [];
+  const idx  = dailys.findIndex(d => d.date === dailyDate);
+  const rec  = { date: dailyDate, water, energy, mood, sideEffects, notes, ts: Date.now() };
+  if (idx >= 0) dailys[idx] = rec; else dailys.push(rec);
+  DB.set('daily', dailys);
+  showToast('Check-in saved!');
+}
+
+// ═══════════════════════════════════════════════════════
+// INJECTION
+// ═══════════════════════════════════════════════════════
+function saveInjection() {
+  const date  = document.getElementById('inj-date').value || today();
+  const dose  = document.getElementById('inj-dose').value;
+  const site  = document.querySelector('#inj-site-pills .pill.on')?.dataset.val || 'abdomen';
+  const notes = document.getElementById('inj-notes').value;
+  DB.push('injections', { date, dose, site, notes, ts: Date.now() });
+  document.getElementById('inj-notes').value = '';
+  showToast('Injection logged!');
+  renderInjectionHistory();
+}
+
+function renderInjectionHistory() {
+  const inj = (DB.get('injections') || []).slice().reverse();
+  const el  = document.getElementById('injection-history');
+  if (!inj.length) { el.innerHTML = `<div class="empty">No injections yet</div>`; return; }
+  el.innerHTML = inj.map(i => `
+    <div class="stat-row">
+      <span class="stat-label">${i.date} · ${i.site}</span>
+      <span class="badge badge-purple">${i.dose}</span>
+    </div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// PROGRESS CHARTS
+// ═══════════════════════════════════════════════════════
+function renderProgress() { showProgressTab('weight'); }
+
+// Mini chart helpers — pure canvas, no lib needed
+function drawLineChart(canvasId, labels, datasets, opts={}) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.parentElement.offsetWidth || 320;
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  const pad = { t:16, r:12, b:28, l:44 };
+  const cW = W - pad.l - pad.r;
+  const cH = H - pad.t - pad.b;
+
+  // find range
+  let minV = Infinity, maxV = -Infinity;
+  datasets.forEach(ds => ds.data.forEach(v => { if(v!=null){minV=Math.min(minV,v);maxV=Math.max(maxV,v);}}));
+  if (minV === maxV) { minV -= 1; maxV += 1; }
+  const range = maxV - minV;
+  const minY  = minV - range * 0.1;
+  const maxY  = maxV + range * 0.1;
+
+  const xPos = i => pad.l + (labels.length <= 1 ? cW/2 : (i / (labels.length - 1)) * cW);
+  const yPos = v => pad.t + cH - ((v - minY) / (maxY - minY)) * cH;
+
+  // grid
+  ctx.strokeStyle = '#2e3450';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + (cH / 4) * i;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    const val = maxY - ((maxY - minY) / 4) * i;
+    ctx.fillStyle = '#7880a0';
+    ctx.font = '9px DM Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(val*10)/10, pad.l - 4, y + 3);
+  }
+
+  // x labels
+  ctx.fillStyle = '#7880a0';
+  ctx.font = '9px DM Mono, monospace';
+  ctx.textAlign = 'center';
+  const step = Math.max(1, Math.floor(labels.length / 6));
+  labels.forEach((l, i) => {
+    if (i % step === 0 || i === labels.length - 1) {
+      ctx.fillText(l, xPos(i), H - 4);
+    }
+  });
+
+  // lines
+  datasets.forEach(ds => {
+    ctx.strokeStyle = ds.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let started = false;
+    ds.data.forEach((v, i) => {
+      if (v == null) { started = false; return; }
+      const x = xPos(i), y = yPos(v);
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // dots
+    ds.data.forEach((v, i) => {
+      if (v == null) return;
+      ctx.fillStyle = ds.color;
+      ctx.beginPath();
+      ctx.arc(xPos(i), yPos(v), 3, 0, Math.PI*2);
+      ctx.fill();
+    });
+  });
+}
+
+function drawWeightChart() {
+  const weights = (DB.get('weights') || []).slice(-30);
+  if (weights.length < 2) {
+    const c = document.getElementById('weight-chart');
+    if (c) {
+      const ctx = c.getContext('2d');
+      c.width = c.parentElement.offsetWidth || 320;
+      ctx.clearRect(0,0,c.width,c.height);
+      ctx.fillStyle = '#7880a0';
+      ctx.font = '13px Inter';
+      ctx.textAlign = 'center';
+      ctx.fillText('Log at least 2 weights to see chart', c.width/2, c.height/2);
+    }
+    renderWeightStats();
+    return;
+  }
+  const labels = weights.map(w => w.date.slice(5));
+  drawLineChart('weight-chart', labels, [{data: weights.map(w=>w.weight), color:'#6c8aff'}]);
+  renderWeightStats();
+}
+
+function renderWeightStats() {
+  const weights = DB.get('weights') || [];
+  const el = document.getElementById('weight-stats');
+  if (!weights.length) { el.innerHTML = `<div class="empty">No weight data</div>`; return; }
+  const first = weights[0];
+  const last  = weights[weights.length - 1];
+  const delta = last.weight - first.weight;
+  const days  = Math.max(1, Math.floor((new Date(last.date) - new Date(first.date)) / 86400000));
+  const perWeek = (delta / days * 7).toFixed(2);
+  el.innerHTML = `
+    <div class="stat-row"><span class="stat-label">Start Weight</span><span class="stat-val">${first.weight} lbs</span></div>
+    <div class="stat-row"><span class="stat-label">Current Weight</span><span class="stat-val">${last.weight} lbs</span></div>
+    <div class="stat-row"><span class="stat-label">Total Change</span><span class="stat-val ${delta<=0?'delta-neg':'delta-pos'}">${delta>0?'+':''}${delta.toFixed(1)} lbs</span></div>
+    <div class="stat-row"><span class="stat-label">Per Week (avg)</span><span class="stat-val ${parseFloat(perWeek)<=0?'delta-neg':'delta-pos'}">${parseFloat(perWeek)>0?'+':''}${perWeek} lbs</span></div>
+    <div class="stat-row"><span class="stat-label">Days Tracked</span><span class="stat-val">${days}</span></div>`;
+}
+
+function renderNutritionProgress() {
+  const meals = DB.get('meals') || [];
+  const last7 = [...new Set(meals.map(m=>m.date))].sort().slice(-7);
+  const avgCal = avg(last7.map(d => meals.filter(m=>m.date===d).reduce((a,m)=>a+m.cal,0)));
+  const avgPro = avg(last7.map(d => meals.filter(m=>m.date===d).reduce((a,m)=>a+m.protein,0)));
+  const avgFib = avg(last7.map(d => meals.filter(m=>m.date===d).reduce((a,m)=>a+m.fiber,0)));
+
+  const bars = [
+    {name:'Calories', val:avgCal, goal:GOALS.calories, color:'#6c8aff'},
+    {name:'Protein', val:avgPro, goal:GOALS.protein, color:'#a78bfa'},
+    {name:'Fiber', val:avgFib, goal:GOALS.fiber, color:'#34d399'},
+  ];
+
+  document.getElementById('nutrition-averages').innerHTML = bars.map(b => {
+    const pct = Math.min((b.val/b.goal)*100,100);
+    return `<div class="bar-wrap">
+      <div class="bar-header">
+        <span class="bar-name">${b.name} (7d avg)</span>
+        <span class="bar-nums">${Math.round(b.val)} / ${b.goal}</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${b.color}"></div></div>
+    </div>`;
+  }).join('');
+
+  // 30d cal chart
+  const last30 = getLastNDays(30);
+  const calByDay = last30.map(d => meals.filter(m=>m.date===d).reduce((a,m)=>a+m.cal,0)||null);
+  drawLineChart('cal-chart', last30.map(d=>d.slice(5)),
+    [{data:calByDay, color:'#6c8aff'}]);
+}
+
+function drawWellnessChart() {
+  const dailys = DB.get('daily') || [];
+  const last14 = getLastNDays(14);
+  const energy = last14.map(d => { const r = dailys.find(x=>x.date===d); return r?r.energy:null; });
+  const mood   = last14.map(d => { const r = dailys.find(x=>x.date===d); return r?r.mood:null; });
+  drawLineChart('wellness-chart', last14.map(d=>d.slice(5)), [
+    {data: energy, color: '#fbbf24'},
+    {data: mood,   color: '#a78bfa'}
+  ]);
+
+  // side effect freq
+  const allEffects = {};
+  dailys.forEach(d => (d.sideEffects||[]).forEach(e => {
+    if (e !== 'none') allEffects[e] = (allEffects[e]||0)+1;
+  }));
+  const freqEl = document.getElementById('side-effect-freq');
+  const entries = Object.entries(allEffects).sort((a,b)=>b[1]-a[1]);
+  if (!entries.length) { freqEl.innerHTML = `<div class="empty">No side effects logged</div>`; return; }
+  freqEl.innerHTML = entries.map(([k,v]) =>
+    `<div class="stat-row"><span class="stat-label">${cap(k.replace('-',' '))}</span><span class="stat-val">${v}×</span></div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// HISTORY
+// ═══════════════════════════════════════════════════════
+function renderHistory(filter) {
+  document.querySelectorAll('.hist-filter').forEach(b =>
+    b.classList.toggle('active', b.dataset.filter === filter));
+
+  const all = [];
+  (DB.get('weights')||[]).forEach(w => all.push({...w,_type:'weight'}));
+  (DB.get('meals')||[]).forEach(m => all.push({...m,_type:'meal'}));
+  (DB.get('exercise')||[]).forEach(e => all.push({...e,_type:'exercise'}));
+  (DB.get('injections')||[]).forEach(i => all.push({...i,_type:'injection'}));
+  (DB.get('daily')||[]).forEach(d => all.push({...d,_type:'daily'}));
+
+  all.sort((a,b) => (b.ts||0) - (a.ts||0));
+
+  const filtered = filter === 'all' ? all : all.filter(x => x._type === filter);
+  const el = document.getElementById('history-list');
+  if (!filtered.length) { el.innerHTML = `<div class="empty">Nothing here yet</div>`; return; }
+
+  el.innerHTML = filtered.map(x => {
+    let cls = '', body = '';
+    if (x._type === 'weight') {
+      cls = 'weight';
+      body = `<strong>${x.weight} lbs</strong>${x.notes?' · '+x.notes:''}`;
+    } else if (x._type === 'meal') {
+      body = `<strong>${cap(x.mealType)}</strong> · ${x.cal} cal · ${x.protein}g protein · ${x.fiber}g fiber`;
+    } else if (x._type === 'exercise') {
+      body = `<strong>${cap(x.type)}</strong> · ${x.duration} min${x.steps?' · '+x.steps+' steps':''}`;
+    } else if (x._type === 'injection') {
+      cls = 'injection';
+      body = `<strong>Injection</strong> · <span class="badge badge-purple">${x.dose}</span> · ${x.site}`;
+    } else if (x._type === 'daily') {
+      body = `<strong>Check-in</strong> · 💧${x.water}oz · ⚡${x.energy}/10 · 😊${x.mood}/10`;
+    }
+    return `<div class="history-item ${cls}">
+      <div class="hi-date">${x.date} · ${cap(x._type)}</div>
+      <div class="hi-body">${body}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+
+function avg(arr) {
+  const valid = arr.filter(v => v != null);
+  return valid.length ? valid.reduce((a,b)=>a+b,0)/valid.length : 0;
+}
+
+function getLastNDays(n) {
+  const days = [];
+  for (let i = n-1; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+  return days;
+}
+
+function step(id, delta) {
+  const el = document.getElementById(id);
+  el.value = Math.max(0, (parseFloat(el.value)||0) + delta);
+  updateMealTotals();
+}
+
+function showToast(msg='Saved!') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ═══════════════════════════════════════════════════════
+// PILL TOGGLES
+// ═══════════════════════════════════════════════════════
+document.querySelectorAll('.pill-group').forEach(group => {
+  const isMulti = group.id === 'side-effect-pills' || group.id === 'exercise-type-pills' ? false : true;
+  group.addEventListener('click', e => {
+    const pill = e.target.closest('.pill');
+    if (!pill) return;
+    if (group.id === 'exercise-type-pills' || group.id === 'inj-site-pills') {
+      group.querySelectorAll('.pill').forEach(p => p.classList.remove('on'));
+      pill.classList.add('on');
+    } else {
+      pill.classList.toggle('on');
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+// WATER QUICK-ADD
+// ═══════════════════════════════════════════════════════
+function addWater(oz) {
+  let dailys = DB.get('daily') || [];
+  const todayStr = today();
+  const idx = dailys.findIndex(d => d.date === todayStr);
+  if (idx >= 0) {
+    dailys[idx].water = (dailys[idx].water || 0) + oz;
+    dailys[idx].ts = Date.now();
+  } else {
+    dailys.push({ date: todayStr, water: oz, energy: 5, mood: 5, sideEffects: [], notes: '', ts: Date.now() });
+  }
+  DB.set('daily', dailys);
+  updateWaterDisplay();
+  showToast(`+${oz}oz water!`);
+}
+
+function updateWaterDisplay() {
+  const dailys = DB.get('daily') || [];
+  const rec = dailys.find(d => d.date === today());
+  const oz = rec ? (rec.water || 0) : 0;
+  const el = document.getElementById('water-today-val');
+  const ring = document.getElementById('water-ring');
+  if (el) el.textContent = oz;
+  if (ring) {
+    const circ = 2 * Math.PI * 23;
+    const pct = Math.min(oz / GOALS.water, 1);
+    ring.style.strokeDashoffset = circ * (1 - pct);
+  }
+  // also sync stepper on Daily tab
+  const stepper = document.getElementById('water-oz');
+  if (stepper) stepper.value = oz;
+}
+
+// History filters
+document.querySelectorAll('.hist-filter').forEach(b => {
+  b.addEventListener('click', () => renderHistory(b.dataset.filter));
+});
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+document.getElementById('inj-date').value = today();
+document.getElementById('meal-date').value = today();
+document.getElementById('ex-date').value = today();
+document.getElementById('daily-date').value = today();
+addMealRow();
+renderToday();
+
+// SW for PWA
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
