@@ -657,6 +657,7 @@
               <div id="meal-rows"></div>
               <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
                 <button class="btn btn-ghost btn-sm" onclick="addMealRow()">+ Manual</button>
+                <button class="btn btn-ghost btn-sm" style="color:var(--success);border-color:var(--success)" onclick="openFoodSearch()">🔍 Search Food</button>
                 <button class="btn btn-ghost btn-sm" style="color:var(--accent2);border-color:var(--accent2)" onclick="openBarcodeScanner()">📷 Scan</button>
               </div>
             </div>
@@ -872,13 +873,49 @@
           </div>
           <div class="field-group">
             <label>Injection Site</label>
-            <div class="pill-group" id="inj-site-pills">
-              <div class="pill on" data-val="abdomen">Abdomen</div>
-              <div class="pill" data-val="thigh-l">Thigh (L)</div>
-              <div class="pill" data-val="thigh-r">Thigh (R)</div>
-              <div class="pill" data-val="arm-l">Arm (L)</div>
-              <div class="pill" data-val="arm-r">Arm (R)</div>
+            <div id="rotation-suggest" style="font-size:0.75rem;color:var(--accent2);font-family:var(--mono);margin-bottom:8px;display:none">
+              💉 Suggested next site: <span id="rotation-suggest-text"></span>
             </div>
+            <!-- Body diagram SVG -->
+            <div style="display:flex;justify-content:center;margin-bottom:10px">
+              <svg id="site-diagram" viewBox="0 0 200 260" width="200" height="260" style="cursor:pointer">
+                <!-- Body outline -->
+                <ellipse cx="100" cy="30" rx="22" ry="26" fill="var(--surface2)" stroke="var(--border)" stroke-width="1.5"/>
+                <rect x="72" y="54" width="56" height="80" rx="8" fill="var(--surface2)" stroke="var(--border)" stroke-width="1.5"/>
+                <!-- Arms -->
+                <rect x="38" y="58" width="32" height="16" rx="8" fill="var(--surface2)" stroke="var(--border)" stroke-width="1.5"/>
+                <rect x="130" y="58" width="32" height="16" rx="8" fill="var(--surface2)" stroke="var(--border)" stroke-width="1.5"/>
+                <!-- Legs -->
+                <rect x="76" y="132" width="22" height="70" rx="8" fill="var(--surface2)" stroke="var(--border)" stroke-width="1.5"/>
+                <rect x="102" y="132" width="22" height="70" rx="8" fill="var(--surface2)" stroke="var(--border)" stroke-width="1.5"/>
+
+                <!-- Abdomen zones (4 quadrants) -->
+                <rect id="site-abd-ul" data-site="abd-ul" x="78" y="72" width="20" height="22" rx="4" fill="var(--surface2)" stroke="var(--border)" stroke-width="1.5" class="site-zone"/>
+                <rect id="site-abd-ur" data-site="abd-ur" x="102" y="72" width="20" height="22" rx="4" fill="var(--surface2)" stroke="var(--border)" stroke-width="1.5" class="site-zone"/>
+                <rect id="site-abd-ll" data-site="abd-ll" x="78" y="98" width="20" height="22" rx="4" fill="var(--surface2)" stroke="var(--border)" stroke-width="1.5" class="site-zone"/>
+                <rect id="site-abd-lr" data-site="abd-lr" x="102" y="98" width="20" height="22" rx="4" fill="var(--surface2)" stroke="var(--border)" stroke-width="1.5" class="site-zone"/>
+
+                <!-- Thighs -->
+                <rect id="site-thigh-l" data-site="thigh-l" x="78" y="140" width="18" height="24" rx="4" fill="var(--surface2)" stroke="var(--border)" stroke-width="1.5" class="site-zone"/>
+                <rect id="site-thigh-r" data-site="thigh-r" x="104" y="140" width="18" height="24" rx="4" fill="var(--surface2)" stroke="var(--border)" stroke-width="1.5" class="site-zone"/>
+
+                <!-- Arms -->
+                <rect id="site-arm-l" data-site="arm-l" x="42" y="60" width="24" height="12" rx="4" fill="var(--surface2)" stroke="var(--border)" stroke-width="1.5" class="site-zone"/>
+                <rect id="site-arm-r" data-site="arm-r" x="134" y="60" width="24" height="12" rx="4" fill="var(--surface2)" stroke="var(--border)" stroke-width="1.5" class="site-zone"/>
+
+                <!-- Labels -->
+                <text x="88" y="86" font-size="7" fill="var(--muted)" text-anchor="middle">UL</text>
+                <text x="112" y="86" font-size="7" fill="var(--muted)" text-anchor="middle">UR</text>
+                <text x="88" y="112" font-size="7" fill="var(--muted)" text-anchor="middle">LL</text>
+                <text x="112" y="112" font-size="7" fill="var(--muted)" text-anchor="middle">LR</text>
+                <text x="87" y="155" font-size="7" fill="var(--muted)" text-anchor="middle">L</text>
+                <text x="113" y="155" font-size="7" fill="var(--muted)" text-anchor="middle">R</text>
+                <text x="54" y="68" font-size="6" fill="var(--muted)" text-anchor="middle">L</text>
+                <text x="146" y="68" font-size="6" fill="var(--muted)" text-anchor="middle">R</text>
+              </svg>
+            </div>
+            <div style="text-align:center;font-size:0.72rem;color:var(--muted);margin-bottom:6px">Tap a zone to select · Selected: <span id="selected-site-label" style="color:var(--accent2)">none</span></div>
+            <input type="hidden" id="inj-site-val" value="" />
           </div>
           <div class="field-group">
             <label>Notes</label>
@@ -904,6 +941,10 @@
       <div id="ptab-weight">
         <div class="card">
           <div class="card-title">Weight History</div>
+          <div style="display:flex;gap:16px;margin-bottom:8px;font-size:0.72rem;font-family:var(--mono)">
+            <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:2px;background:#6c8aff;display:inline-block;border-radius:1px"></span>Actual</span>
+            <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:2px;background:#fbbf24;display:inline-block;border-radius:1px;border-top:2px dashed #fbbf24"></span>7-day avg</span>
+          </div>
           <div class="chart-wrap"><canvas id="weight-chart" height="200"></canvas></div>
         </div>
         <div class="card">
@@ -973,6 +1014,41 @@
       </div>
 
       <div class="card">
+        <div class="card-title">Injection Reminder</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Weekly Reminder</div>
+            <div class="settings-sub">Push notification on injection day</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="reminder-enabled" onchange="saveReminderSettings()" style="width:18px;height:18px;accent-color:var(--accent)" />
+            <span id="reminder-toggle-label" style="font-size:0.82rem;color:var(--muted)">Off</span>
+          </label>
+        </div>
+        <div id="reminder-config" style="display:none">
+          <div class="settings-row">
+            <div class="settings-label">Day of week</div>
+            <select id="reminder-day" onchange="saveReminderSettings()" style="width:130px">
+              <option value="0">Sunday</option>
+              <option value="1">Monday</option>
+              <option value="2">Tuesday</option>
+              <option value="3">Wednesday</option>
+              <option value="4">Thursday</option>
+              <option value="5">Friday</option>
+              <option value="6">Saturday</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label">Time</div>
+            <input type="time" id="reminder-time" value="09:00" onchange="saveReminderSettings()" style="width:130px" />
+          </div>
+          <div class="settings-row">
+            <div id="reminder-status" style="font-size:0.75rem;color:var(--muted);font-family:var(--mono)">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Daily Goals</div>
         <div class="settings-row">
           <div class="settings-label">Calories</div>
@@ -1004,6 +1080,16 @@
             <div class="settings-sub">Download as JSON backup</div>
           </div>
           <button class="btn btn-ghost btn-sm" onclick="exportData()">Export</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Copy to Clipboard</div>
+            <div class="settings-sub">Paste into Google Docs, Sheets, etc.</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+            <button class="btn btn-ghost btn-sm" onclick="copyToClipboard('summary')">Summary</button>
+            <button class="btn btn-ghost btn-sm" onclick="copyToClipboard('full')">Full Log</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1132,6 +1218,42 @@
   </div>
 </div>
 
+<!-- Food Search Modal -->
+<div class="modal-overlay" id="food-search-modal">
+  <div class="modal">
+    <div class="modal-title">🔍 Search Food</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input type="text" id="food-search-input" placeholder="e.g. banana, chicken breast…"
+             style="flex:1" onkeydown="if(event.key==='Enter')searchFood()" />
+      <button class="btn btn-primary btn-sm" onclick="searchFood()">Search</button>
+    </div>
+    <div id="food-search-status" style="font-size:0.78rem;color:var(--muted);margin-bottom:8px"></div>
+    <div id="food-search-results"></div>
+
+    <!-- serving picker shown after selecting a food -->
+    <div id="food-serving-picker" style="display:none">
+      <div class="divider"></div>
+      <div id="food-selected-name" style="font-weight:600;font-size:0.9rem;margin-bottom:10px"></div>
+      <div class="field-group">
+        <label>Serving Size</label>
+        <select id="food-serving-select" onchange="updateFoodServingCalc()"></select>
+      </div>
+      <div class="field-group">
+        <label>Quantity</label>
+        <div class="stepper">
+          <button onclick="step('food-qty',-0.5)">−</button>
+          <input type="number" id="food-qty" value="1" min="0.25" step="0.25" oninput="updateFoodServingCalc()" />
+          <button onclick="step('food-qty',0.5)">+</button>
+        </div>
+      </div>
+      <div id="food-nutrition-preview" style="font-family:var(--mono);font-size:0.82rem;background:var(--surface2);border-radius:var(--radius-sm);padding:10px;margin-bottom:12px"></div>
+      <button class="btn btn-primary" onclick="addFoodFromSearch()" style="margin-bottom:8px">Add to Meal</button>
+    </div>
+
+    <button class="btn btn-ghost" onclick="closeFoodSearch()" style="margin-top:8px">Close</button>
+  </div>
+</div>
+
 <!-- Barcode Scanner Modal -->
 <div class="modal-overlay" id="barcode-modal">
   <div class="modal">
@@ -1255,7 +1377,7 @@ function showLogTab(tab) {
   });
   if (tab === 'intake')    { showIntakeSubtab('food'); renderTodaysMealsLog(); }
   if (tab === 'exercise')  renderTodaysExerciseLog();
-  if (tab === 'injection') renderInjectionHistory();
+  if (tab === 'injection') { renderInjectionHistory(); initRotationDiagram(); }
 }
 
 function showIntakeSubtab(sub) {
@@ -1895,29 +2017,183 @@ function saveDailyCheckin() {
 }
 
 // ═══════════════════════════════════════════════════════
-// INJECTION
+// INJECTION SITE ROTATION
 // ═══════════════════════════════════════════════════════
+const SITE_LABELS = {
+  'abd-ul': 'Abdomen Upper-Left',
+  'abd-ur': 'Abdomen Upper-Right',
+  'abd-ll': 'Abdomen Lower-Left',
+  'abd-lr': 'Abdomen Lower-Right',
+  'thigh-l': 'Thigh (Left)',
+  'thigh-r': 'Thigh (Right)',
+  'arm-l':   'Arm (Left)',
+  'arm-r':   'Arm (Right)',
+};
+// Rotation order — cycles through all zones
+const ROTATION_ORDER = ['abd-ul','abd-ur','abd-lr','abd-ll','thigh-l','thigh-r','arm-l','arm-r'];
+
+let selectedSite = '';
+
+function initRotationDiagram() {
+  const injections = DB.get('injections') || [];
+  // paint last-used sites on diagram
+  updateDiagramColors(injections);
+  // suggest next
+  suggestNextSite(injections);
+  // wire up click
+  document.querySelectorAll('.site-zone').forEach(el => {
+    el.addEventListener('click', () => selectSiteZone(el.dataset.site));
+  });
+}
+
+function updateDiagramColors(injections) {
+  const recent = injections.slice(-8).map(i => i.site);
+  document.querySelectorAll('.site-zone').forEach(el => {
+    const site = el.dataset.site;
+    const lastIdx = recent.lastIndexOf(site);
+    if (lastIdx === recent.length - 1) {
+      el.style.fill = 'rgba(248,113,113,0.35)'; // most recent — red
+      el.style.stroke = '#f87171';
+    } else if (lastIdx >= 0) {
+      const age = recent.length - 1 - lastIdx;
+      const alpha = Math.max(0.05, 0.25 - age * 0.05);
+      el.style.fill = `rgba(108,138,255,${alpha})`; // older — fading blue
+      el.style.stroke = 'var(--border)';
+    } else {
+      el.style.fill = 'var(--surface2)';
+      el.style.stroke = 'var(--border)';
+    }
+  });
+}
+
+function suggestNextSite(injections) {
+  if (!injections.length) return;
+  const lastSite = injections[injections.length - 1].site;
+  const lastIdx  = ROTATION_ORDER.indexOf(lastSite);
+  const nextSite = ROTATION_ORDER[(lastIdx + 1) % ROTATION_ORDER.length];
+  const el = document.getElementById('rotation-suggest');
+  const txt = document.getElementById('rotation-suggest-text');
+  if (el && txt) {
+    txt.textContent = SITE_LABELS[nextSite] || nextSite;
+    el.style.display = 'block';
+    // auto-select suggestion
+    selectSiteZone(nextSite);
+  }
+}
+
+function selectSiteZone(site) {
+  selectedSite = site;
+  document.getElementById('inj-site-val').value = site;
+  const lbl = document.getElementById('selected-site-label');
+  if (lbl) lbl.textContent = SITE_LABELS[site] || site;
+  // highlight selected
+  document.querySelectorAll('.site-zone').forEach(el => {
+    if (el.dataset.site === site) {
+      el.style.fill = 'rgba(167,139,250,0.5)';
+      el.style.stroke = '#a78bfa';
+    }
+  });
+}
+
 function saveInjection() {
   const date  = document.getElementById('inj-date').value || today();
   const dose  = document.getElementById('inj-dose').value;
-  const site  = document.querySelector('#inj-site-pills .pill.on')?.dataset.val || 'abdomen';
+  const site  = document.getElementById('inj-site-val').value || 'abd-ul';
   const notes = document.getElementById('inj-notes').value;
   DB.push('injections', { date, dose, site, notes, ts: Date.now() });
   document.getElementById('inj-notes').value = '';
+  // refresh diagram
+  const injections = DB.get('injections') || [];
+  updateDiagramColors(injections);
+  suggestNextSite(injections);
   showToast('Injection logged!');
   renderInjectionHistory();
+  renderToday();
 }
 
 function renderInjectionHistory() {
   const inj = (DB.get('injections') || []).slice().reverse();
   const el  = document.getElementById('injection-history');
+  if (!el) return;
   if (!inj.length) { el.innerHTML = `<div class="empty">No injections yet</div>`; return; }
   el.innerHTML = inj.map(i => `
     <div class="stat-row">
-      <span class="stat-label">${i.date} · ${i.site}</span>
+      <span class="stat-label">${i.date} · ${SITE_LABELS[i.site]||i.site}</span>
       <span class="badge badge-purple">${i.dose}</span>
     </div>`
   ).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// INJECTION REMINDERS (Web Push / Notification API)
+// ═══════════════════════════════════════════════════════
+let reminderInterval = null;
+
+async function saveReminderSettings() {
+  const enabled = document.getElementById('reminder-enabled').checked;
+  const day  = parseInt(document.getElementById('reminder-day').value);
+  const time = document.getElementById('reminder-time').value;
+  document.getElementById('reminder-toggle-label').textContent = enabled ? 'On' : 'Off';
+  document.getElementById('reminder-config').style.display = enabled ? 'block' : 'none';
+
+  DB.set('reminder', { enabled, day, time });
+
+  if (!enabled) {
+    clearInterval(reminderInterval);
+    document.getElementById('reminder-status').textContent = 'Reminders off';
+    return;
+  }
+
+  // request permission
+  if ('Notification' in window) {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      document.getElementById('reminder-status').textContent = '⚠️ Notification permission denied — enable in Chrome settings';
+      return;
+    }
+  }
+
+  scheduleReminders({ enabled, day, time });
+}
+
+function scheduleReminders(cfg) {
+  clearInterval(reminderInterval);
+  const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  document.getElementById('reminder-status').textContent =
+    `Next reminder: every ${DAYS[cfg.day]} at ${cfg.time}`;
+
+  // check every minute
+  reminderInterval = setInterval(() => {
+    const now = new Date();
+    if (now.getDay() !== cfg.day) return;
+    const [h, m] = cfg.time.split(':').map(Number);
+    if (now.getHours() === h && now.getMinutes() === m) {
+      // only fire once — check if already shown this week
+      const lastFired = DB.get('reminderLastFired');
+      const todayStr  = today();
+      if (lastFired === todayStr) return;
+      DB.set('reminderLastFired', todayStr);
+      new Notification('💉 ZepTrack — Injection Day!', {
+        body: "Time for your weekly Zepbound injection. Don't forget to log it!",
+        icon: './icon-192.png',
+        badge: './icon-192.png'
+      });
+    }
+  }, 60000);
+}
+
+function initReminders() {
+  const cfg = DB.get('reminder');
+  if (!cfg) return;
+  const el = document.getElementById('reminder-enabled');
+  const dayEl = document.getElementById('reminder-day');
+  const timeEl = document.getElementById('reminder-time');
+  if (el) el.checked = cfg.enabled;
+  if (dayEl) dayEl.value = cfg.day;
+  if (timeEl) timeEl.value = cfg.time;
+  document.getElementById('reminder-toggle-label').textContent = cfg.enabled ? 'On' : 'Off';
+  document.getElementById('reminder-config').style.display = cfg.enabled ? 'block' : 'none';
+  if (cfg.enabled) scheduleReminders(cfg);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1976,7 +2252,8 @@ function drawLineChart(canvasId, labels, datasets, opts={}) {
   // lines
   datasets.forEach(ds => {
     ctx.strokeStyle = ds.color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = ds.dashed ? 1.5 : 2;
+    ctx.setLineDash(ds.dashed ? [4, 3] : []);
     ctx.beginPath();
     let started = false;
     ds.data.forEach((v, i) => {
@@ -1986,20 +2263,30 @@ function drawLineChart(canvasId, labels, datasets, opts={}) {
       else ctx.lineTo(x, y);
     });
     ctx.stroke();
+    ctx.setLineDash([]);
 
-    // dots
-    ds.data.forEach((v, i) => {
-      if (v == null) return;
-      ctx.fillStyle = ds.color;
-      ctx.beginPath();
-      ctx.arc(xPos(i), yPos(v), 3, 0, Math.PI*2);
-      ctx.fill();
-    });
+    // dots — only for non-dashed lines
+    if (!ds.dashed) {
+      ds.data.forEach((v, i) => {
+        if (v == null) return;
+        ctx.fillStyle = ds.color;
+        ctx.beginPath();
+        ctx.arc(xPos(i), yPos(v), 3, 0, Math.PI*2);
+        ctx.fill();
+      });
+    }
+  });
+}
+
+function rollingAvg(data, window) {
+  return data.map((_, i) => {
+    const slice = data.slice(Math.max(0, i - window + 1), i + 1).filter(v => v != null);
+    return slice.length ? Math.round(slice.reduce((a,b)=>a+b,0)/slice.length * 10)/10 : null;
   });
 }
 
 function drawWeightChart() {
-  const weights = (DB.get('weights') || []).slice(-30);
+  const weights = (DB.get('weights') || []).slice(-60);
   if (weights.length < 2) {
     const c = document.getElementById('weight-chart');
     if (c) {
@@ -2014,8 +2301,13 @@ function drawWeightChart() {
     renderWeightStats();
     return;
   }
-  const labels = weights.map(w => w.date.slice(5));
-  drawLineChart('weight-chart', labels, [{data: weights.map(w=>w.weight), color:'#6c8aff'}]);
+  const labels  = weights.map(w => w.date.slice(5));
+  const actual  = weights.map(w => w.weight);
+  const avgLine = rollingAvg(actual, 7);
+  drawLineChart('weight-chart', labels, [
+    { data: actual,  color: '#6c8aff' },
+    { data: avgLine, color: '#fbbf24', dashed: true }
+  ]);
   renderWeightStats();
 }
 
@@ -2242,6 +2534,7 @@ function initSettings() {
   document.getElementById('goal-fib').value   = GOALS.fiber;
   document.getElementById('goal-water').value = GOALS.water;
   document.getElementById('goal-steps').value = GOALS.steps;
+  initReminders();
 }
 
 function exportData() {
@@ -2259,6 +2552,275 @@ function exportData() {
   a.href = URL.createObjectURL(blob);
   a.download = 'zeptrack-backup-' + today() + '.json';
   a.click();
+}
+
+function copyToClipboard(mode) {
+  const wUnit = getWeightUnit();
+  const wtrUnit = getWaterUnit();
+  const lines = [];
+
+  if (mode === 'summary') {
+    lines.push('ZEPTRACK — SUMMARY REPORT');
+    lines.push('Generated: ' + new Date().toLocaleDateString('en-US', {weekday:'long',year:'numeric',month:'long',day:'numeric'}));
+    lines.push('');
+
+    // Weight
+    const weights = DB.get('weights') || [];
+    lines.push('── WEIGHT ──');
+    if (weights.length) {
+      const first = weights[0], last = weights[weights.length-1];
+      const delta = last.weight - first.weight;
+      lines.push(`Start:   ${displayWeight(first.weight)}  (${first.date})`);
+      lines.push(`Current: ${displayWeight(last.weight)}  (${last.date})`);
+      lines.push(`Change:  ${delta>0?'+':''}${UNITS==='metric'?(delta*0.453592).toFixed(1)+' kg':delta.toFixed(1)+' lbs'}`);
+      lines.push(`Entries: ${weights.length}`);
+    } else { lines.push('No weight data'); }
+    lines.push('');
+
+    // 7-day nutrition averages
+    const meals = DB.get('meals') || [];
+    const last7days = getLastNDays(7);
+    lines.push('── 7-DAY NUTRITION AVERAGES ──');
+    const avgCal = avg(last7days.map(d => meals.filter(m=>m.date===d&&m.type!=='drink').reduce((a,m)=>a+m.cal,0)));
+    const avgPro = avg(last7days.map(d => meals.filter(m=>m.date===d&&m.type!=='drink').reduce((a,m)=>a+m.protein,0)));
+    const avgFib = avg(last7days.map(d => meals.filter(m=>m.date===d&&m.type!=='drink').reduce((a,m)=>a+m.fiber,0)));
+    lines.push(`Calories: ${Math.round(avgCal)} / ${GOALS.calories} goal`);
+    lines.push(`Protein:  ${Math.round(avgPro)}g / ${GOALS.protein}g goal`);
+    lines.push(`Fiber:    ${Math.round(avgFib)}g / ${GOALS.fiber}g goal`);
+    lines.push('');
+
+    // Injections
+    const injections = DB.get('injections') || [];
+    lines.push('── ZEPBOUND INJECTIONS ──');
+    if (injections.length) {
+      injections.slice(-5).forEach(i => lines.push(`${i.date}  ${i.dose}  (${i.site})`));
+      if (injections.length > 5) lines.push(`… and ${injections.length-5} earlier`);
+    } else { lines.push('No injections logged'); }
+
+  } else {
+    // FULL LOG
+    lines.push('ZEPTRACK — FULL DATA LOG');
+    lines.push('Generated: ' + new Date().toISOString());
+    lines.push('Units: ' + UNITS);
+    lines.push('');
+
+    // Weight log
+    const weights = DB.get('weights') || [];
+    lines.push('══ WEIGHT LOG ══');
+    if (weights.length) {
+      lines.push('Date        Weight');
+      weights.forEach(w => lines.push(`${w.date}  ${displayWeight(w.weight)}${w.notes?' — '+w.notes:''}`));
+    } else { lines.push('(none)'); }
+    lines.push('');
+
+    // Daily intake by date
+    const meals = DB.get('meals') || [];
+    const allDates = [...new Set(meals.map(m=>m.date))].sort().reverse();
+    lines.push('══ INTAKE LOG ══');
+    allDates.forEach(date => {
+      const dayMeals = meals.filter(m=>m.date===date);
+      const totCal = dayMeals.reduce((a,m)=>a+m.cal,0);
+      const totPro = dayMeals.reduce((a,m)=>a+m.protein,0);
+      lines.push('');
+      lines.push(`${date}  (${totCal} cal total · ${Math.round(totPro)}g protein)`);
+      dayMeals.forEach(m => {
+        const icon = m.type==='drink'?'☕':'🍽';
+        lines.push(`  ${icon} ${m.type==='drink'?(m.drinkName||'Drink'):cap(m.mealType)}  ${m.cal} cal · ${m.protein}g pro`);
+        (m.items||[]).forEach(i => lines.push(`      ${i.name}${i.cal?' — '+i.cal+' cal':''}`));
+      });
+    });
+    lines.push('');
+
+    // Exercise log
+    const exercise = DB.get('exercise') || [];
+    lines.push('══ EXERCISE LOG ══');
+    if (exercise.length) {
+      exercise.slice().reverse().forEach(e =>
+        lines.push(`${e.date}  ${cap(e.type)}  ${e.duration}min${e.steps?' · '+e.steps+' steps':''}${e.notes?' — '+e.notes:''}`));
+    } else { lines.push('(none)'); }
+    lines.push('');
+
+    // Daily check-ins
+    const daily = DB.get('daily') || [];
+    lines.push('══ DAILY CHECK-INS ══');
+    if (daily.length) {
+      daily.slice().reverse().forEach(d =>
+        lines.push(`${d.date}  💧${d.water}${wtrUnit}  ⚡${d.energy}/10  😊${d.mood}/10${d.sideEffects?.length?' — '+d.sideEffects.join(', '):''}`));
+    } else { lines.push('(none)'); }
+    lines.push('');
+
+    // Injections
+    const injections = DB.get('injections') || [];
+    lines.push('══ INJECTIONS ══');
+    if (injections.length) {
+      injections.slice().reverse().forEach(i =>
+        lines.push(`${i.date}  ${i.dose}  ${i.site}${i.notes?' — '+i.notes:''}`));
+    } else { lines.push('(none)'); }
+  }
+
+  const text = lines.join('\n');
+  navigator.clipboard.writeText(text)
+    .then(() => showToast(mode==='summary' ? 'Summary copied!' : 'Full log copied!'))
+    .catch(() => {
+      // fallback for older browsers
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('Copied!');
+    });
+}
+
+// ═══════════════════════════════════════════════════════
+// FOOD SEARCH (USDA FoodData Central)
+// ═══════════════════════════════════════════════════════
+let foodSearchSelected = null; // { name, nutrients, portions }
+
+function openFoodSearch() {
+  document.getElementById('food-search-modal').classList.add('open');
+  document.getElementById('food-search-input').value = '';
+  document.getElementById('food-search-results').innerHTML = '';
+  document.getElementById('food-search-status').textContent = '';
+  document.getElementById('food-serving-picker').style.display = 'none';
+  foodSearchSelected = null;
+  setTimeout(() => document.getElementById('food-search-input').focus(), 100);
+}
+
+function closeFoodSearch() {
+  document.getElementById('food-search-modal').classList.remove('open');
+  foodSearchSelected = null;
+}
+
+async function searchFood() {
+  const query = document.getElementById('food-search-input').value.trim();
+  if (!query) return;
+  const status = document.getElementById('food-search-status');
+  const results = document.getElementById('food-search-results');
+  status.textContent = 'Searching…';
+  results.innerHTML = '';
+  document.getElementById('food-serving-picker').style.display = 'none';
+
+  try {
+    // USDA FoodData Central — no API key needed for branded + foundation foods
+    const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&dataType=Foundation,SR%20Legacy&pageSize=8&api_key=DEMO_KEY`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (!data.foods || !data.foods.length) {
+      status.textContent = 'No results. Try a different search term.';
+      return;
+    }
+
+    status.textContent = `${data.foods.length} results — tap one to select`;
+    results.innerHTML = data.foods.map((f, i) => `
+      <div onclick="selectFoodResult(${i})" style="padding:10px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:var(--radius-sm);transition:background 0.1s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+        <div style="font-size:0.85rem;font-weight:500">${f.description}</div>
+        <div style="font-size:0.72rem;color:var(--muted);margin-top:2px">${f.foodCategory||f.dataType||''}</div>
+      </div>`).join('');
+
+    // store results for selection
+    window._foodSearchResults = data.foods;
+  } catch(e) {
+    status.textContent = 'Search failed — check connection and try again.';
+  }
+}
+
+function selectFoodResult(idx) {
+  const food = window._foodSearchResults[idx];
+  if (!food) return;
+
+  // extract key nutrients from nutrient array
+  const getNutrient = (ids) => {
+    for (const id of ids) {
+      const n = (food.foodNutrients||[]).find(n => n.nutrientId === id || n.nutrientNumber === String(id));
+      if (n && n.value != null) return n.value;
+    }
+    return 0;
+  };
+
+  // USDA nutrient IDs: energy=1008, protein=1003, fiber=1079, carbs=1005, fat=1004
+  const per100 = {
+    cal:     Math.round(getNutrient([1008, '208'])),
+    protein: Math.round(getNutrient([1003, '203']) * 10) / 10,
+    fiber:   Math.round(getNutrient([1079, '291']) * 10) / 10,
+    carbs:   Math.round(getNutrient([1005, '205']) * 10) / 10,
+    fat:     Math.round(getNutrient([1004, '204']) * 10) / 10,
+  };
+
+  // build serving size options
+  const portions = [];
+
+  // add standard 100g serving
+  portions.push({ label: '100g', grams: 100 });
+
+  // add any food-specific portions from USDA
+  (food.foodMeasures || []).forEach(m => {
+    if (m.disseminationText && m.gramWeight) {
+      portions.push({ label: m.disseminationText, grams: m.gramWeight });
+    }
+  });
+
+  // common fallbacks by category
+  if (portions.length === 1) {
+    const cat = (food.foodCategory||'').toLowerCase();
+    const desc = food.description.toLowerCase();
+    if (desc.includes('banana'))    portions.push({label:'1 medium banana (118g)', grams:118},{label:'1 large banana (136g)', grams:136});
+    else if (desc.includes('apple')) portions.push({label:'1 medium apple (182g)', grams:182});
+    else if (desc.includes('egg'))   portions.push({label:'1 large egg (50g)', grams:50},{label:'1 extra large egg (56g)', grams:56});
+    else if (desc.includes('chicken')) portions.push({label:'3 oz (85g)', grams:85},{label:'4 oz (113g)', grams:113});
+    else if (desc.includes('bread')) portions.push({label:'1 slice (28g)', grams:28});
+    else if (desc.includes('milk') || desc.includes('yogurt')) portions.push({label:'1 cup (245g)', grams:245},{label:'½ cup (122g)', grams:122});
+    else if (desc.includes('rice') || desc.includes('pasta')) portions.push({label:'½ cup cooked (92g)', grams:92},{label:'1 cup cooked (185g)', grams:185});
+    else if (cat.includes('vegetable') || cat.includes('fruit')) portions.push({label:'½ cup (75g)', grams:75},{label:'1 cup (150g)', grams:150});
+    else portions.push({label:'1 oz (28g)', grams:28},{label:'½ cup (60g)', grams:60});
+  }
+
+  foodSearchSelected = { name: food.description, per100, portions };
+
+  // populate picker
+  document.getElementById('food-selected-name').textContent = food.description;
+  const sel = document.getElementById('food-serving-select');
+  sel.innerHTML = portions.map((p,i) => `<option value="${i}">${p.label}</option>`).join('');
+  document.getElementById('food-qty').value = 1;
+  document.getElementById('food-serving-picker').style.display = 'block';
+  document.getElementById('food-search-results').innerHTML = '';
+  document.getElementById('food-search-status').textContent = '';
+  updateFoodServingCalc();
+}
+
+function updateFoodServingCalc() {
+  if (!foodSearchSelected) return;
+  const portionIdx = parseInt(document.getElementById('food-serving-select').value) || 0;
+  const qty = parseFloat(document.getElementById('food-qty').value) || 1;
+  const portion = foodSearchSelected.portions[portionIdx];
+  const factor = (portion.grams * qty) / 100;
+  const p = foodSearchSelected.per100;
+  const calc = {
+    cal:     Math.round(p.cal * factor),
+    protein: Math.round(p.protein * factor * 10) / 10,
+    fiber:   Math.round(p.fiber * factor * 10) / 10,
+    carbs:   Math.round(p.carbs * factor * 10) / 10,
+    fat:     Math.round(p.fat * factor * 10) / 10,
+  };
+  window._foodSearchCalc = calc;
+  document.getElementById('food-nutrition-preview').innerHTML =
+    `<strong>${calc.cal} cal</strong> · ${calc.protein}g protein · ${calc.fiber}g fiber<br>${calc.carbs}g carbs · ${calc.fat}g fat`;
+}
+
+function addFoodFromSearch() {
+  if (!foodSearchSelected || !window._foodSearchCalc) return;
+  const c = window._foodSearchCalc;
+  const portionIdx = parseInt(document.getElementById('food-serving-select').value) || 0;
+  const qty = parseFloat(document.getElementById('food-qty').value) || 1;
+  const portionLabel = foodSearchSelected.portions[portionIdx].label;
+  const label = qty === 1 ? `${foodSearchSelected.name} (${portionLabel})` : `${foodSearchSelected.name} ×${qty} (${portionLabel})`;
+  addMealRow(label, c.cal, c.protein, c.fiber, c.carbs, c.fat);
+  closeFoodSearch();
+  showToast('Added to meal!');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2389,7 +2951,7 @@ function addScannedItem() {
 }
 
 // Pill toggles — single-select groups
-['dp-category-pills','dp-water-pills','inj-site-pills','exercise-type-pills'].forEach(gid => {
+['dp-category-pills','dp-water-pills','exercise-type-pills'].forEach(gid => {
   const group = document.getElementById(gid);
   if (!group) return;
   group.addEventListener('click', e => {
@@ -2419,6 +2981,7 @@ document.getElementById('ex-date').value = today();
 document.getElementById('daily-date').value = today();
 addMealRow();
 initSettings();
+initReminders();
 renderToday();
 
 // SW for PWA
