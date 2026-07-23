@@ -1389,6 +1389,19 @@
   </div>
 </div>
 
+<!-- Entry Edit Modal -->
+<div class="modal-overlay" id="entry-edit-modal">
+  <div class="modal">
+    <div class="modal-title" id="entry-edit-title">Edit Entry</div>
+    <input type="hidden" id="entry-edit-type" />
+    <input type="hidden" id="entry-edit-idx" />
+    <div id="entry-edit-fields"></div>
+    <button class="btn btn-primary" onclick="saveEntryEdit()" style="margin-bottom:8px">Save</button>
+    <button class="btn btn-danger btn-sm" onclick="deleteEntryFromModal()" style="margin-bottom:8px">Delete Entry</button>
+    <button class="btn btn-ghost" onclick="closeEntryEditModal()">Cancel</button>
+  </div>
+</div>
+
 <!-- Weight Modal -->
 <div class="modal-overlay" id="weight-modal">
   <div class="modal">
@@ -1889,11 +1902,11 @@ function renderTodaysMealsLog() {
   if (!todayMeals.length) { el.innerHTML = `<div class="empty">No food logged today</div>`; return; }
   el.innerHTML = todayMeals.map((m,i) => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="flex:1">
-        <div style="font-size:0.82rem;font-weight:500">${m.items?.[0]?.name || cap(m.mealType)}</div>
-        <div style="font-size:0.72rem;color:var(--muted);font-family:var(--mono)">${cap(m.mealType)} · ${m.cal} cal · ${m.protein}g pro</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${entryName(m)}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:2px">${nutritionChips(m)}</div>
       </div>
-      <button onclick="deleteMealEntry(${i})" style="background:none;border:none;color:var(--danger);font-size:1rem;cursor:pointer;padding:4px 8px">×</button>
+      <button onclick="deleteMealEntry(${i})" style="background:none;border:none;color:var(--danger);font-size:1rem;cursor:pointer;padding:4px 8px;flex-shrink:0">×</button>
     </div>`).join('');
 }
 
@@ -2558,20 +2571,32 @@ function renderToday() {
       <div class="delta ${cls}">${sign}${UNITS==='metric'?(delta*0.453592).toFixed(1)+' kg':delta.toFixed(1)+' lbs'} from start</div>`;
   }
 
-  // intake summary (food + drinks)
+  // intake summary grouped by meal type
   const allIntake = (DB.get('meals')||[]).filter(m=>m.date===todayStr);
   const is = document.getElementById('intake-summary-today');
   if (is) {
     if (!allIntake.length) {
       is.innerHTML = `<div style="color:var(--muted);font-size:0.82rem">Nothing logged</div>`;
     } else {
-      is.innerHTML = allIntake.map(m=>{
-        const icon = m.type==='drink' ? (CAT_EMOJI[m.drinkCategory]||'🥛') : '🍽';
-        return `<div class="stat-row">
-          <span class="stat-label">${icon} ${m.type==='drink'?m.drinkName||'Drink':cap(m.mealType)}</span>
-          <span class="stat-val">${m.cal} cal · ${m.protein}g pro</span>
-        </div>`;
-      }).join('');
+      const GROUPS = ['drink','breakfast','lunch','dinner','snack'];
+      const GROUP_LABELS = {drink:'Drinks',breakfast:'Breakfast',lunch:'Lunch',dinner:'Dinner',snack:'Snacks'};
+      let html = '';
+      GROUPS.forEach(g => {
+        const items = allIntake.filter(m => m.mealType === g || (g==='drink' && m.type==='drink'));
+        if (!items.length) return;
+        html += `<div style="margin-bottom:8px">
+          <div style="font-size:0.65rem;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">${GROUP_LABELS[g]}</div>`;
+        items.forEach(m => {
+          html += `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
+            <div style="flex:1;min-width:0">
+              <span style="font-size:0.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${entryName(m)}</span>
+              <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:1px">${nutritionChips(m)}</div>
+            </div>
+          </div>`;
+        });
+        html += `</div>`;
+      });
+      is.innerHTML = html;
     }
   }
 
@@ -3134,16 +3159,46 @@ function drawWellnessChart() {
 // ═══════════════════════════════════════════════════════
 // HISTORY
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// NUTRITION CHIP HELPER
+// ═══════════════════════════════════════════════════════
+const METRIC_COLORS = {
+  water:   '#38bdf8',
+  cal:     '#6c8aff',
+  protein: '#a78bfa',
+  fiber:   '#34d399',
+};
+
+function nutritionChips(entry) {
+  const chips = [];
+  if (entry.type === 'drink' || entry.mealType === 'drink') {
+    const vol  = entry.drinkVolume || entry.quantity || '';
+    const unit = entry.unit || getWaterUnit();
+    if (vol) chips.push(`<span style="color:${METRIC_COLORS.water};font-size:0.72rem;font-family:var(--mono)">${vol} ${unit}</span>`);
+    if (entry.cal) chips.push(`<span style="color:${METRIC_COLORS.cal};font-size:0.72rem;font-family:var(--mono)">${Math.round(entry.cal)} cal</span>`);
+  } else {
+    if (entry.cal)     chips.push(`<span style="color:${METRIC_COLORS.cal};font-size:0.72rem;font-family:var(--mono)">${Math.round(entry.cal)} cal</span>`);
+    if (entry.protein) chips.push(`<span style="color:${METRIC_COLORS.protein};font-size:0.72rem;font-family:var(--mono)">${+(entry.protein).toFixed(1)}g</span>`);
+    if (entry.fiber)   chips.push(`<span style="color:${METRIC_COLORS.fiber};font-size:0.72rem;font-family:var(--mono)">${+(entry.fiber).toFixed(1)}g fiber</span>`);
+  }
+  return chips.join('<span style="color:var(--border);margin:0 3px">·</span>');
+}
+
+function entryName(m) {
+  const raw = m.items?.[0]?.name || (m.type==='drink' ? m.drinkName||'Drink' : cap(m.mealType));
+  return raw.length > 22 ? raw.substring(0,20) + '…' : raw;
+}
+
 function renderHistory(filter) {
   document.querySelectorAll('.hist-filter').forEach(b =>
     b.classList.toggle('active', b.dataset.filter === filter));
 
   const all = [];
-  (DB.get('weights')||[]).forEach(w => all.push({...w,_type:'weight'}));
-  (DB.get('meals')||[]).forEach(m => all.push({...m,_type:'meal'}));
-  (DB.get('exercise')||[]).forEach(e => all.push({...e,_type:'exercise'}));
-  (DB.get('injections')||[]).forEach(i => all.push({...i,_type:'injection'}));
-  (DB.get('daily')||[]).forEach(d => all.push({...d,_type:'daily'}));
+  (DB.get('weights')||[]).forEach((w,i)   => all.push({...w, _type:'weight',    _idx:i}));
+  (DB.get('meals')||[]).forEach((m,i)      => all.push({...m, _type:'meal',      _idx:i}));
+  (DB.get('exercise')||[]).forEach((e,i)   => all.push({...e, _type:'exercise',  _idx:i}));
+  (DB.get('injections')||[]).forEach((x,i) => all.push({...x, _type:'injection', _idx:i}));
+  (DB.get('daily')||[]).forEach((d,i)      => all.push({...d, _type:'daily',     _idx:i}));
 
   all.sort((a,b) => (b.ts||0) - (a.ts||0));
 
@@ -3152,25 +3207,163 @@ function renderHistory(filter) {
   if (!filtered.length) { el.innerHTML = `<div class="empty">Nothing here yet</div>`; return; }
 
   el.innerHTML = filtered.map(x => {
-    let cls = '', body = '';
+    let cls = '', header = '', body = '';
     if (x._type === 'weight') {
       cls = 'weight';
-      body = `<strong>${x.weight} lbs</strong>${x.notes?' · '+x.notes:''}`;
+      header = `${x.date} · Weight`;
+      body = `<strong style="color:${METRIC_COLORS.cal}">${displayWeight(x.weight)}</strong>${x.notes?` <span style="color:var(--muted);font-size:0.72rem">· ${x.notes}</span>`:''}`;
     } else if (x._type === 'meal') {
-      body = `<strong>${cap(x.mealType)}</strong> · ${x.cal} cal · ${x.protein}g protein · ${x.fiber}g fiber`;
+      header = `${x.date} · ${cap(x.mealType)}`;
+      body = `<span style="font-weight:500">${entryName(x)}</span>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:3px">${nutritionChips(x)}</div>`;
     } else if (x._type === 'exercise') {
+      header = `${x.date} · Exercise`;
       body = `<strong>${cap(x.type)}</strong> · ${x.duration} min${x.steps?' · '+x.steps+' steps':''}`;
     } else if (x._type === 'injection') {
       cls = 'injection';
-      body = `<strong>Injection</strong> · <span class="badge badge-purple">${x.dose}</span> · ${x.site}`;
+      header = `${x.date} · Injection`;
+      body = `<span class="badge badge-purple">${x.dose}</span> · ${SITE_LABELS[x.site]||x.site}`;
     } else if (x._type === 'daily') {
-      body = `<strong>Check-in</strong> · 💧${x.water}oz · ⚡${x.energy}/10 · 😊${x.mood}/10`;
+      header = `${x.date} · Daily Check-in`;
+      body = `<span style="color:${METRIC_COLORS.water}">💧${x.water}${getWaterUnit()}</span> · ⚡${x.energy}/10 · 😊${x.mood}/10`;
     }
-    return `<div class="history-item ${cls}">
-      <div class="hi-date">${x.date} · ${cap(x._type)}</div>
+    return `<div class="history-item ${cls}" onclick="openEntryEdit('${x._type}',${x._idx})" style="cursor:pointer">
+      <div class="hi-date">${header}</div>
       <div class="hi-body">${body}</div>
     </div>`;
   }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// ENTRY EDIT MODAL
+// ═══════════════════════════════════════════════════════
+function openEntryEdit(type, idx) {
+  const dbKey = {meal:'meals',weight:'weights',exercise:'exercise',injection:'injections',daily:'daily'}[type];
+  const data  = DB.get(dbKey) || [];
+  const entry = data[idx];
+  if (!entry) return;
+  document.getElementById('entry-edit-type').value = type;
+  document.getElementById('entry-edit-idx').value  = idx;
+  document.getElementById('entry-edit-title').textContent = `Edit ${cap(type)}`;
+  const f = document.getElementById('entry-edit-fields');
+
+  if (type === 'meal') {
+    const name = (entry.items?.[0]?.name || '').replace(/"/g,'&quot;');
+    f.innerHTML = `
+      <div class="field-group"><label>Date</label><input type="date" id="ee-date" value="${entry.date}" /></div>
+      <div class="field-group"><label>Meal Type</label><select id="ee-mealtype">
+        ${['breakfast','lunch','dinner','snack','drink'].map(t=>`<option value="${t}"${entry.mealType===t?' selected':''}>${cap(t)}</option>`).join('')}
+      </select></div>
+      <div class="field-group"><label>Item Name</label><input type="text" id="ee-name" value="${name}" /></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label>Calories</label><input type="number" id="ee-cal"  value="${entry.cal||0}"     min="0" /></div>
+        <div><label>Protein (g)</label><input type="number" id="ee-pro"  value="${entry.protein||0}" min="0" step="0.1" /></div>
+        <div><label>Fiber (g)</label><input type="number" id="ee-fib"  value="${entry.fiber||0}"   min="0" step="0.1" /></div>
+        <div><label>Carbs (g)</label><input type="number" id="ee-carb" value="${entry.carbs||0}"   min="0" step="0.1" /></div>
+        <div><label>Fat (g)</label><input type="number" id="ee-fat"  value="${entry.fat||0}"     min="0" step="0.1" /></div>
+      </div>`;
+  } else if (type === 'weight') {
+    const w = UNITS==='metric' ? (entry.weight*0.453592).toFixed(1) : entry.weight;
+    f.innerHTML = `
+      <div class="field-group"><label>Date</label><input type="date" id="ee-date" value="${entry.date}" /></div>
+      <div class="field-group"><label>Weight (${getWeightUnit()})</label><input type="number" id="ee-weight" value="${w}" step="0.1" /></div>
+      <div class="field-group"><label>Notes</label><input type="text" id="ee-notes" value="${entry.notes||''}" /></div>`;
+  } else if (type === 'exercise') {
+    f.innerHTML = `
+      <div class="field-group"><label>Date</label><input type="date" id="ee-date" value="${entry.date}" /></div>
+      <div class="field-group"><label>Type</label><select id="ee-extype">
+        ${['walking','cardio','weights','other'].map(t=>`<option value="${t}"${entry.type===t?' selected':''}>${cap(t)}</option>`).join('')}
+      </select></div>
+      <div class="field-group"><label>Duration (min)</label><input type="number" id="ee-duration" value="${entry.duration||0}" /></div>
+      <div class="field-group"><label>Steps</label><input type="number" id="ee-steps" value="${entry.steps||0}" /></div>
+      <div class="field-group"><label>Notes</label><textarea id="ee-notes" style="min-height:56px">${entry.notes||''}</textarea></div>`;
+  } else if (type === 'injection') {
+    f.innerHTML = `
+      <div class="field-group"><label>Date</label><input type="date" id="ee-date" value="${entry.date}" /></div>
+      <div class="field-group"><label>Dose</label><select id="ee-dose">
+        ${['2.5mg','5mg','7.5mg','10mg','12.5mg','15mg'].map(d=>`<option value="${d}"${entry.dose===d?' selected':''}>${d}</option>`).join('')}
+      </select></div>
+      <div class="field-group"><label>Notes</label><textarea id="ee-notes" style="min-height:56px">${entry.notes||''}</textarea></div>`;
+  } else if (type === 'daily') {
+    f.innerHTML = `
+      <div class="field-group"><label>Date</label><input type="date" id="ee-date" value="${entry.date}" /></div>
+      <div class="field-group"><label>Water (${getWaterUnit()})</label><input type="number" id="ee-water" value="${entry.water||0}" min="0" /></div>
+      <div class="field-group"><label>Energy (1–10) — <span id="ee-energy-disp">${entry.energy||5}</span></label>
+        <input type="range" id="ee-energy" min="1" max="10" value="${entry.energy||5}" oninput="document.getElementById('ee-energy-disp').textContent=this.value" /></div>
+      <div class="field-group"><label>Mood (1–10) — <span id="ee-mood-disp">${entry.mood||5}</span></label>
+        <input type="range" id="ee-mood" min="1" max="10" value="${entry.mood||5}" oninput="document.getElementById('ee-mood-disp').textContent=this.value" /></div>
+      <div class="field-group"><label>Notes</label><textarea id="ee-notes" style="min-height:56px">${entry.notes||''}</textarea></div>`;
+  }
+  document.getElementById('entry-edit-modal').classList.add('open');
+}
+
+function closeEntryEditModal() {
+  document.getElementById('entry-edit-modal').classList.remove('open');
+}
+
+function saveEntryEdit() {
+  const type  = document.getElementById('entry-edit-type').value;
+  const idx   = parseInt(document.getElementById('entry-edit-idx').value);
+  const dbKey = {meal:'meals',weight:'weights',exercise:'exercise',injection:'injections',daily:'daily'}[type];
+  const data  = DB.get(dbKey) || [];
+  const entry = {...data[idx]};
+
+  if (type === 'meal') {
+    const name = document.getElementById('ee-name').value.trim();
+    const cal  = parseFloat(document.getElementById('ee-cal').value)  || 0;
+    const pro  = parseFloat(document.getElementById('ee-pro').value)  || 0;
+    const fib  = parseFloat(document.getElementById('ee-fib').value)  || 0;
+    const carb = parseFloat(document.getElementById('ee-carb').value) || 0;
+    const fat  = parseFloat(document.getElementById('ee-fat').value)  || 0;
+    entry.date = document.getElementById('ee-date').value;
+    entry.mealType = document.getElementById('ee-mealtype').value;
+    entry.cal = cal; entry.protein = pro; entry.fiber = fib; entry.carbs = carb; entry.fat = fat;
+    entry.items = [{name, cal, protein:pro, fiber:fib, carbs:carb, fat}];
+  } else if (type === 'weight') {
+    let w = parseFloat(document.getElementById('ee-weight').value);
+    if (UNITS === 'metric') w = Math.round(w / 0.453592 * 10) / 10;
+    entry.date = document.getElementById('ee-date').value;
+    entry.weight = w;
+    entry.notes  = document.getElementById('ee-notes').value;
+  } else if (type === 'exercise') {
+    entry.date     = document.getElementById('ee-date').value;
+    entry.type     = document.getElementById('ee-extype').value;
+    entry.duration = parseInt(document.getElementById('ee-duration').value) || 0;
+    entry.steps    = parseInt(document.getElementById('ee-steps').value)    || 0;
+    entry.notes    = document.getElementById('ee-notes').value;
+  } else if (type === 'injection') {
+    entry.date  = document.getElementById('ee-date').value;
+    entry.dose  = document.getElementById('ee-dose').value;
+    entry.notes = document.getElementById('ee-notes').value;
+  } else if (type === 'daily') {
+    entry.date   = document.getElementById('ee-date').value;
+    entry.water  = parseFloat(document.getElementById('ee-water').value)  || 0;
+    entry.energy = parseInt(document.getElementById('ee-energy').value)   || 5;
+    entry.mood   = parseInt(document.getElementById('ee-mood').value)     || 5;
+    entry.notes  = document.getElementById('ee-notes').value;
+  }
+
+  entry.ts = Date.now();
+  data[idx] = entry;
+  DB.set(dbKey, data);
+  closeEntryEditModal();
+  showToast('Updated!');
+  renderHistory(document.querySelector('.hist-filter.active')?.dataset.filter || 'all');
+  renderToday();
+}
+
+function deleteEntryFromModal() {
+  if (!confirm('Delete this entry?')) return;
+  const type  = document.getElementById('entry-edit-type').value;
+  const idx   = parseInt(document.getElementById('entry-edit-idx').value);
+  const dbKey = {meal:'meals',weight:'weights',exercise:'exercise',injection:'injections',daily:'daily'}[type];
+  const data  = DB.get(dbKey) || [];
+  data.splice(idx, 1);
+  DB.set(dbKey, data);
+  closeEntryEditModal();
+  showToast('Deleted!');
+  renderHistory(document.querySelector('.hist-filter.active')?.dataset.filter || 'all');
+  renderToday();
 }
 
 // ═══════════════════════════════════════════════════════
