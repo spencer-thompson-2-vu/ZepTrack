@@ -1003,8 +1003,9 @@
           <div id="nutrition-averages"></div>
         </div>
         <div class="card">
-          <div class="card-title">Calories (30 days)</div>
-          <div class="chart-wrap"><canvas id="cal-chart" height="180"></canvas></div>
+          <div class="card-title">30-Day Macro Trend</div>
+          <div id="macro-chart-legend" style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:10px;font-size:0.7rem;font-family:var(--mono)"></div>
+          <div class="chart-wrap"><canvas id="cal-chart" height="200"></canvas></div>
         </div>
       </div>
 
@@ -2885,20 +2886,63 @@ function drawLineChart(canvasId, labels, datasets, opts={}) {
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0,0,W,H);
 
-  const pad = { t:16, r:12, b:28, l:44 };
+  // legend
+  if (opts.legendId) {
+    const leg = document.getElementById(opts.legendId);
+    if (leg) {
+      leg.innerHTML = datasets.filter(ds => ds.label).map(ds =>
+        `<span style="display:flex;align-items:center;gap:5px">
+          <span style="display:inline-block;width:18px;height:3px;background:${ds.color};border-radius:2px;
+            ${ds.dashed ? 'background:none;border-top:2px dashed '+ds.color : ''}"></span>
+          <span style="color:var(--muted)">${ds.label}</span>
+        </span>`
+      ).join('');
+    }
+  }
+
+  // y-axis label
+  const yLabel = opts.yLabel || '';
+  const pad = { t:16, r:12, b:28, l: yLabel ? 52 : 44 };
   const cW = W - pad.l - pad.r;
   const cH = H - pad.t - pad.b;
 
-  // find range
+  // find range — for % charts clamp 0–120
   let minV = Infinity, maxV = -Infinity;
   datasets.forEach(ds => ds.data.forEach(v => { if(v!=null){minV=Math.min(minV,v);maxV=Math.max(maxV,v);}}));
   if (minV === maxV) { minV -= 1; maxV += 1; }
+  if (opts.pct) { minV = 0; maxV = Math.max(120, maxV + 10); }
   const range = maxV - minV;
-  const minY  = minV - range * 0.1;
-  const maxY  = maxV + range * 0.1;
+  const minY  = opts.pct ? 0 : minV - range * 0.1;
+  const maxY  = opts.pct ? maxV : maxV + range * 0.1;
 
   const xPos = i => pad.l + (labels.length <= 1 ? cW/2 : (i / (labels.length - 1)) * cW);
   const yPos = v => pad.t + cH - ((v - minY) / (maxY - minY)) * cH;
+
+  // y-axis label text
+  if (yLabel) {
+    ctx.save();
+    ctx.translate(11, pad.t + cH/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.fillStyle = '#7880a0';
+    ctx.font = '9px DM Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(yLabel, 0, 0);
+    ctx.restore();
+  }
+
+  // 100% target line for pct charts
+  if (opts.pct) {
+    const ty = yPos(100);
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(pad.l, ty); ctx.lineTo(W - pad.r, ty); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '8px DM Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('100%', W - pad.r + 2, ty + 3);
+  }
 
   // grid
   ctx.strokeStyle = '#2e3450';
@@ -2910,7 +2954,8 @@ function drawLineChart(canvasId, labels, datasets, opts={}) {
     ctx.fillStyle = '#7880a0';
     ctx.font = '9px DM Mono, monospace';
     ctx.textAlign = 'right';
-    ctx.fillText(Math.round(val*10)/10, pad.l - 4, y + 3);
+    const label = opts.pct ? Math.round(val) + '%' : Math.round(val*10)/10;
+    ctx.fillText(label, pad.l - 4, y + 3);
   }
 
   // x labels
@@ -3006,34 +3051,61 @@ function renderWeightStats() {
 }
 
 function renderNutritionProgress() {
-  const meals = DB.get('meals') || [];
-  const last7 = [...new Set(meals.map(m=>m.date))].sort().slice(-7);
-  const avgCal = avg(last7.map(d => meals.filter(m=>m.date===d).reduce((a,m)=>a+m.cal,0)));
-  const avgPro = avg(last7.map(d => meals.filter(m=>m.date===d).reduce((a,m)=>a+m.protein,0)));
-  const avgFib = avg(last7.map(d => meals.filter(m=>m.date===d).reduce((a,m)=>a+m.fiber,0)));
+  const meals  = DB.get('meals')  || [];
+  const dailys = DB.get('daily')  || [];
+  const last7  = getLastNDays(7);
+  const last30 = getLastNDays(30);
 
-  const bars = [
-    {name:'Calories', val:avgCal, goal:GOALS.calories, color:'#6c8aff'},
-    {name:'Protein', val:avgPro, goal:GOALS.protein, color:'#a78bfa'},
-    {name:'Fiber', val:avgFib, goal:GOALS.fiber, color:'#34d399'},
+  // 7-day averages
+  const dayTotal = (days, key) =>
+    avg(days.map(d => meals.filter(m=>m.date===d).reduce((a,m)=>a+(m[key]||0),0)));
+  const waterAvg = d => {
+    const rec = dailys.find(x=>x.date===d);
+    return rec ? (rec.water||0) : 0;
+  };
+
+  const MACROS = [
+    { name:'Calories', key:'cal',     goal:GOALS.calories, color:'#f87171', unit:''  },
+    { name:'Protein',  key:'protein', goal:GOALS.protein,  color:'#34d399', unit:'g' },
+    { name:'Carbs',    key:'carbs',   goal:250,            color:'#fbbf24', unit:'g' },
+    { name:'Fat',      key:'fat',     goal:65,             color:'#fb923c', unit:'g' },
+    { name:'Fiber',    key:'fiber',   goal:GOALS.fiber,    color:'#a78bfa', unit:'g' },
+    { name:'Water',    key:'water',   goal:GOALS.water,    color:'#38bdf8', unit: getWaterUnit() },
   ];
 
-  document.getElementById('nutrition-averages').innerHTML = bars.map(b => {
-    const pct = Math.min((b.val/b.goal)*100,100);
+  document.getElementById('nutrition-averages').innerHTML = MACROS.map(m => {
+    const val = m.key === 'water'
+      ? avg(last7.map(d => waterAvg(d)))
+      : dayTotal(last7, m.key);
+    const pct = Math.min((val / m.goal) * 100, 100);
     return `<div class="bar-wrap">
       <div class="bar-header">
-        <span class="bar-name">${b.name} (7d avg)</span>
-        <span class="bar-nums">${Math.round(b.val)} / ${b.goal}</span>
+        <span class="bar-name">${m.name} (7d avg)</span>
+        <span class="bar-nums">${Math.round(val)}${m.unit} / ${m.goal}${m.unit}</span>
       </div>
-      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${b.color}"></div></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${m.color}"></div></div>
     </div>`;
   }).join('');
 
-  // 30d cal chart
-  const last30 = getLastNDays(30);
-  const calByDay = last30.map(d => meals.filter(m=>m.date===d).reduce((a,m)=>a+m.cal,0)||null);
-  drawLineChart('cal-chart', last30.map(d=>d.slice(5)),
-    [{data:calByDay, color:'#6c8aff'}]);
+  // 30-day chart — % of daily goal so all macros share one Y axis
+  const xLabels = last30.map(d => d.slice(5));
+
+  const datasets = MACROS.map(m => ({
+    label: m.name + ' %',
+    color: m.color,
+    data: last30.map(d => {
+      const val = m.key === 'water'
+        ? waterAvg(d)
+        : meals.filter(x=>x.date===d).reduce((a,x)=>a+(x[m.key]||0),0);
+      return val > 0 ? Math.round(val / m.goal * 100) : null;
+    })
+  }));
+
+  drawLineChart('cal-chart', xLabels, datasets, {
+    legendId: 'macro-chart-legend',
+    yLabel:   '% of Goal',
+    pct:      true
+  });
 }
 
 function drawWellnessChart() {
