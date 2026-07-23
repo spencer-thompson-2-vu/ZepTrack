@@ -585,6 +585,18 @@
         <div id="today-bars"></div>
       </div>
 
+      <!-- Summary table: Today / Yesterday / Week / Month -->
+      <div class="card">
+        <div class="card-title">Goals vs Actuals</div>
+        <div class="tabs" style="margin-bottom:10px">
+          <button class="tab active" id="sum-tab-today" onclick="showSummaryTab('today')">Today</button>
+          <button class="tab" id="sum-tab-yesterday" onclick="showSummaryTab('yesterday')">Yesterday</button>
+          <button class="tab" id="sum-tab-week" onclick="showSummaryTab('week')">Week</button>
+          <button class="tab" id="sum-tab-month" onclick="showSummaryTab('month')">Month</button>
+        </div>
+        <div id="summary-table"></div>
+      </div>
+
       <div class="card" id="weight-card">
         <div class="card-title">Weight</div>
         <div class="weight-hero" id="weight-hero"></div>
@@ -630,7 +642,7 @@
         <!-- FOOD sub-tab -->
         <div id="itab-food">
           <div class="card">
-            <div class="card-title">Log Food</div>
+            <div class="card-title">Quick Log</div>
             <div class="field-group">
               <label>Date</label>
               <input type="date" id="meal-date" />
@@ -642,28 +654,57 @@
                 <option value="lunch">Lunch</option>
                 <option value="dinner">Dinner</option>
                 <option value="snack">Snack</option>
+                <option value="drink">Drink</option>
               </select>
             </div>
             <div class="field-group">
-              <div class="col-headers" style="grid-template-columns:1fr 48px 48px 48px 48px 48px 32px">
-                <div class="col-h">Item</div>
-                <div class="col-h">Cal</div>
-                <div class="col-h">Pro</div>
-                <div class="col-h">Fib</div>
-                <div class="col-h">Carb</div>
-                <div class="col-h">Fat</div>
-                <div class="col-h"></div>
+              <label>Item</label>
+              <div id="quick-pick-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px"></div>
+              <div style="display:flex;gap:6px;margin-bottom:8px">
+                <input type="text" id="custom-item-input" placeholder="Custom item name"
+                  style="flex:1;display:none"
+                  onkeydown="if(event.key==='Enter')lookupCustomItem()"
+                  onblur="lookupCustomItem()" />
+                <button id="custom-lookup-btn" onclick="lookupCustomItem()"
+                  style="display:none;padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--success);background:none;color:var(--success);font-size:0.78rem;cursor:pointer;white-space:nowrap">
+                  Look up
+                </button>
               </div>
-              <div id="meal-rows"></div>
-              <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
-                <button class="btn btn-ghost btn-sm" onclick="addMealRow()">+ Manual</button>
-                <button class="btn btn-ghost btn-sm" style="color:var(--success);border-color:var(--success)" onclick="openFoodSearch()">🔍 Search Food</button>
-                <button class="btn btn-ghost btn-sm" style="color:var(--accent2);border-color:var(--accent2)" onclick="openBarcodeScanner()">📷 Scan</button>
+              <div id="lookup-source-badge" style="display:none;font-size:0.68rem;font-family:var(--mono);margin-bottom:4px"></div>
+              <div id="selected-item-display" style="font-size:0.78rem;color:var(--accent2);font-family:var(--mono);min-height:18px;margin-bottom:4px"></div>
+            </div>
+            <div class="field-group">
+              <label>Quantity</label>
+              <div style="display:flex;gap:8px">
+                <input type="number" id="item-quantity" placeholder="e.g. 2" step="0.25" min="0" style="flex:1" />
+                <select id="item-unit" style="width:90px">
+                  <option value="OZ">OZ</option>
+                  <option value="ML">ML</option>
+                  <option value="Grams">Grams</option>
+                  <option value="Count">Count</option>
+                </select>
               </div>
             </div>
-            <div class="divider"></div>
-            <div id="meal-totals" style="font-family:var(--mono);font-size:0.78rem;color:var(--muted);margin-bottom:12px"></div>
-            <button class="btn btn-primary" onclick="saveMeal()">Save Food Entry</button>
+            <div id="quick-nutrition-preview" style="display:none;font-family:var(--mono);font-size:0.78rem;background:var(--surface2);border-radius:var(--radius-sm);padding:10px;margin-bottom:10px;color:var(--muted)"></div>
+            <div class="field-group" id="custom-nutrition-fields" style="display:none">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-size:0.72rem;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em">Nutrition (per serving)</div>
+                <button onclick="saveAsCustomItem()" style="font-size:0.68rem;padding:4px 8px;border-radius:var(--radius-sm);border:1px solid var(--accent2);background:none;color:var(--accent2);cursor:pointer">+ Save to Library</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div><label>Calories</label><input type="number" id="ci-cal" placeholder="0" min="0" oninput="updateCustomPreview()" /></div>
+                <div><label>Protein (g)</label><input type="number" id="ci-pro" placeholder="0" min="0" step="0.1" oninput="updateCustomPreview()" /></div>
+                <div><label>Carbs (g)</label><input type="number" id="ci-carb" placeholder="0" min="0" step="0.1" oninput="updateCustomPreview()" /></div>
+                <div><label>Fat (g)</label><input type="number" id="ci-fat" placeholder="0" min="0" step="0.1" oninput="updateCustomPreview()" /></div>
+                <div><label>Fiber (g)</label><input type="number" id="ci-fib" placeholder="0" min="0" step="0.1" oninput="updateCustomPreview()" /></div>
+                <div><label>Serving size (<span class="ci-unit-label">g</span>)</label><input type="number" id="ci-serving" placeholder="100" min="1" value="100" oninput="updateCustomPreview()" /></div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+              <button class="btn btn-ghost btn-sm" style="color:var(--success);border-color:var(--success)" onclick="openFoodSearch()">🔍 Search</button>
+              <button class="btn btn-ghost btn-sm" style="color:var(--accent2);border-color:var(--accent2)" onclick="openBarcodeScanner()">📷 Scan</button>
+            </div>
+            <button class="btn btn-primary" onclick="saveQuickLog()">Log Item</button>
           </div>
           <div class="card">
             <div class="card-title">Today's Food</div>
@@ -1073,13 +1114,42 @@
       </div>
 
       <div class="card">
+        <div class="card-title">Custom Items Library</div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-bottom:10px">Saved foods not in USDA — looked up before USDA when logging</div>
+        <div id="custom-items-settings-list"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="openCustomItemModal()">+ Add Custom Item</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Quick-Pick Food Items</div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-bottom:10px">Items shown as quick-pick buttons in the Intake log</div>
+        <div id="quickpick-settings-list"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <input type="text" id="new-quickpick-name" placeholder="Item name" style="flex:1" />
+          <button class="btn btn-ghost btn-sm" onclick="addQuickPickItem()">Add</button>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Data</div>
+        <div class="settings-row">
+          <div>
         <div class="settings-row">
           <div>
             <div class="settings-label">Export All Data</div>
             <div class="settings-sub">Download as JSON backup</div>
           </div>
           <button class="btn btn-ghost btn-sm" onclick="exportData()">Export</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Import from JSON</div>
+            <div class="settings-sub" style="color:var(--danger)">⚠️ Overwrites existing data</div>
+          </div>
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer">
+            Import
+            <input type="file" id="import-file" accept=".json" onchange="importFromJSON(this)" style="display:none" />
+          </label>
         </div>
         <div class="settings-row">
           <div>
@@ -1117,6 +1187,29 @@
       Settings
     </button>
   </nav>
+</div>
+
+<!-- Custom Item Modal -->
+<div class="modal-overlay" id="custom-item-modal">
+  <div class="modal">
+    <div class="modal-title" id="custom-item-modal-title">New Custom Item</div>
+    <input type="hidden" id="ci-edit-id" value="" />
+    <div class="field-group">
+      <label>Item Name</label>
+      <input type="text" id="ci-modal-name" placeholder="e.g. SK Protein Shake" />
+    </div>
+    <div style="font-size:0.72rem;color:var(--muted);font-family:var(--mono);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em">Nutrition per serving</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div><label>Calories</label><input type="number" id="ci-modal-cal" placeholder="0" min="0" /></div>
+      <div><label>Protein (g)</label><input type="number" id="ci-modal-pro" placeholder="0" min="0" step="0.1" /></div>
+      <div><label>Carbs (g)</label><input type="number" id="ci-modal-carb" placeholder="0" min="0" step="0.1" /></div>
+      <div><label>Fat (g)</label><input type="number" id="ci-modal-fat" placeholder="0" min="0" step="0.1" /></div>
+      <div><label>Fiber (g)</label><input type="number" id="ci-modal-fib" placeholder="0" min="0" step="0.1" /></div>
+      <div><label>Serving size (g)</label><input type="number" id="ci-modal-serving" placeholder="100" value="100" min="1" /></div>
+    </div>
+    <button class="btn btn-primary" onclick="saveCustomItemFromModal()" style="margin-bottom:8px">Save Item</button>
+    <button class="btn btn-ghost" onclick="closeCustomItemModal()">Cancel</button>
+  </div>
 </div>
 
 <!-- Drink Preset Modal -->
@@ -1196,12 +1289,14 @@
       <input type="number" id="recipe-total-weight" placeholder="e.g. 800" min="1" oninput="updateRecipeNutritionPer100()" />
     </div>
     <div class="divider"></div>
-    <div style="font-size:0.75rem;color:var(--muted);font-family:var(--mono);margin-bottom:8px">INGREDIENTS</div>
-    <div style="display:grid;grid-template-columns:1fr 42px 42px 42px 42px 42px 28px;gap:4px;margin-bottom:4px">
+    <div style="font-size:0.72rem;color:var(--muted);font-family:var(--mono);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em">Ingredients</div>
+    <!-- ingredient col headers -->
+    <div style="display:grid;grid-template-columns:1fr 60px 60px 48px 48px 48px 48px 28px;gap:4px;margin-bottom:4px">
       <div class="col-h">Ingredient</div>
+      <div class="col-h">Qty (g)</div>
+      <div class="col-h">Unit</div>
       <div class="col-h">Cal</div>
       <div class="col-h">Pro</div>
-      <div class="col-h">Fib</div>
       <div class="col-h">Crb</div>
       <div class="col-h">Fat</div>
       <div class="col-h"></div>
@@ -1390,90 +1485,562 @@ function showIntakeSubtab(sub) {
   if (sub === 'drink')  renderDrinkPresets();
   if (sub === 'recipe') { renderRecipesList(); renderRecipeSelect(); }
   if (sub === 'water')  updateWaterDisplay();
+  if (sub === 'food')   renderQuickPickGrid();
 }
 
 // ═══════════════════════════════════════════════════════
-// MEALS / FOOD
+// QUICK-PICK LIST
 // ═══════════════════════════════════════════════════════
-let mealRows = [];
+const DEFAULT_QUICK_PICKS = [
+  'Water','Coffee','Iced Tea','Hard Boiled Egg','Cheese Stick',
+  'Nuts','Trail Mix','SK Protein Shake','Banana','Apple','Yogurt','Other'
+];
 
-function addMealRow(name='', cal='', protein='', fiber='', carbs='', fat='') {
-  const id = Date.now() + Math.random();
-  mealRows.push(id);
-  const row = document.createElement('div');
-  row.style.cssText = 'display:grid;grid-template-columns:1fr 42px 42px 42px 42px 42px 28px;gap:4px;margin-bottom:4px;align-items:center';
-  row.id = 'mr-' + id;
-  const inp = (cls, ph, val) => `<input type="number" placeholder="${ph}" value="${val}" class="${cls}" style="padding:6px 4px;font-size:0.78rem;text-align:center" oninput="updateMealTotals()" min="0" step="0.1" />`;
-  row.innerHTML = `
-    <input type="text" placeholder="Food item" value="${name}" class="mr-name" style="padding:6px 8px;font-size:0.8rem" oninput="updateMealTotals()" />
-    ${inp('mr-cal','0',cal)}${inp('mr-pro','0',protein)}${inp('mr-fib','0',fiber)}${inp('mr-crb','0',carbs)}${inp('mr-fat','0',fat)}
-    <button style="width:28px;height:32px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--danger);cursor:pointer;font-size:0.9rem" onclick="removeMealRow('${id}')">×</button>`;
-  document.getElementById('meal-rows').appendChild(row);
-  updateMealTotals();
+function getQuickPicks() {
+  return DB.get('quickPicks') || DEFAULT_QUICK_PICKS;
 }
 
-function removeMealRow(id) {
-  document.getElementById('mr-' + id)?.remove();
-  mealRows = mealRows.filter(r => r !== id);
-  updateMealTotals();
+let selectedQuickItem = null;  // { name, nutrition: {cal,protein,fiber,carbs,fat} | null }
+let quickUSDACache = {};
+
+function renderQuickPickGrid() {
+  const items = getQuickPicks();
+  const grid = document.getElementById('quick-pick-grid');
+  if (!grid) return;
+  grid.innerHTML = items.map(name => `
+    <button onclick="selectQuickItem('${name.replace(/'/g,"\\'")}', this)"
+      style="padding:8px 4px;border-radius:var(--radius-sm);border:1px solid var(--border);
+             background:var(--surface2);color:var(--text);font-size:0.75rem;cursor:pointer;
+             transition:all 0.15s;text-align:center;line-height:1.2"
+      class="qp-btn">${name}</button>`).join('');
 }
 
-function updateMealTotals() {
-  let cal=0, pro=0, fib=0, crb=0, fat=0;
-  document.querySelectorAll('.mr-cal').forEach(i => cal += parseFloat(i.value)||0);
-  document.querySelectorAll('.mr-pro').forEach(i => pro += parseFloat(i.value)||0);
-  document.querySelectorAll('.mr-fib').forEach(i => fib += parseFloat(i.value)||0);
-  document.querySelectorAll('.mr-crb').forEach(i => crb += parseFloat(i.value)||0);
-  document.querySelectorAll('.mr-fat').forEach(i => fat += parseFloat(i.value)||0);
-  const el = document.getElementById('meal-totals');
-  if (el) el.textContent = `${Math.round(cal)} cal · ${Math.round(pro)}g pro · ${Math.round(fib)}g fib · ${Math.round(crb)}g carb · ${Math.round(fat)}g fat`;
-}
-
-function saveMeal() {
-  let cal=0, pro=0, fib=0, crb=0, fat=0;
-  const items = [];
-  document.querySelectorAll('#meal-rows > div').forEach(row => {
-    const name = row.querySelector('.mr-name')?.value.trim();
-    const c  = parseFloat(row.querySelector('.mr-cal')?.value)||0;
-    const p  = parseFloat(row.querySelector('.mr-pro')?.value)||0;
-    const f  = parseFloat(row.querySelector('.mr-fib')?.value)||0;
-    const cb = parseFloat(row.querySelector('.mr-crb')?.value)||0;
-    const ft = parseFloat(row.querySelector('.mr-fat')?.value)||0;
-    if (name) { cal+=c; pro+=p; fib+=f; crb+=cb; fat+=ft; items.push({name,cal:c,protein:p,fiber:f,carbs:cb,fat:ft}); }
+async function selectQuickItem(name, btn) {
+  document.querySelectorAll('.qp-btn').forEach(b => {
+    b.style.borderColor = 'var(--border)';
+    b.style.background = 'var(--surface2)';
+    b.style.color = 'var(--text)';
   });
-  if (!items.length) { alert('Add at least one food item'); return; }
+
+  const isOther = name === 'Other';
+  const customInput  = document.getElementById('custom-item-input');
+  const lookupBtn    = document.getElementById('custom-lookup-btn');
+  const customFields = document.getElementById('custom-nutrition-fields');
+  const preview      = document.getElementById('quick-nutrition-preview');
+  const badge        = document.getElementById('lookup-source-badge');
+
+  btn.style.borderColor = isOther ? 'var(--accent2)' : 'var(--accent)';
+  btn.style.background  = isOther ? 'rgba(167,139,250,0.15)' : 'rgba(108,138,255,0.15)';
+  btn.style.color       = isOther ? 'var(--accent2)' : 'var(--accent)';
+
+  if (isOther) {
+    customInput.style.display  = 'block';
+    lookupBtn.style.display    = 'block';
+    customFields.style.display = 'none';
+    preview.style.display      = 'none';
+    badge.style.display        = 'none';
+    selectedQuickItem = { name: 'custom', nutrition: null };
+    document.getElementById('selected-item-display').textContent = 'Enter item name then tap Look up';
+    customInput.focus();
+    return;
+  }
+
+  customInput.style.display  = 'none';
+  lookupBtn.style.display    = 'none';
+  customFields.style.display = 'none';
+  badge.style.display        = 'none';
+  document.getElementById('selected-item-display').textContent = `Looking up ${name}…`;
+  preview.style.display = 'none';
+
+  const result = await resolveItemNutrition(name);
+  applyLookupResult(name, result);
+}
+
+async function lookupCustomItem() {
+  const name = document.getElementById('custom-item-input').value.trim();
+  if (!name) return;
+  const preview  = document.getElementById('quick-nutrition-preview');
+  const badge    = document.getElementById('lookup-source-badge');
+  document.getElementById('selected-item-display').textContent = `Looking up "${name}"…`;
+  preview.style.display = 'none';
+  badge.style.display   = 'none';
+  const result = await resolveItemNutrition(name);
+  applyLookupResult(name, result);
+}
+
+// ── Core lookup chain: Recipe Library → Custom Items → USDA → null ──
+async function resolveItemNutrition(name) {
+  const q = name.toLowerCase().trim();
+
+  // 1. Recipe Library — fuzzy match
+  const recipes = DB.get('recipes') || [];
+  const recipeMatch = recipes.find(r => {
+    const rn = r.name.toLowerCase().replace(/\*\*/g, '');
+    return rn.includes(q) || q.includes(rn.split(' ')[0]);
+  });
+  if (recipeMatch) {
+    // recipes store total nutrition for totalWeight — return per-100g equivalent
+    const tw = recipeMatch.totalWeight || 100;
+    return {
+      source: 'recipe',
+      sourceName: recipeMatch.name,
+      per100: {
+        cal:     Math.round(recipeMatch.totalCal     / tw * 100),
+        protein: Math.round(recipeMatch.totalProtein / tw * 100 * 10) / 10,
+        fiber:   Math.round(recipeMatch.totalFiber   / tw * 100 * 10) / 10,
+        carbs:   Math.round(recipeMatch.totalCarbs   / tw * 100 * 10) / 10,
+        fat:     Math.round(recipeMatch.totalFat     / tw * 100 * 10) / 10,
+      }
+    };
+  }
+
+  // 2. Custom Items Library — fuzzy match
+  const customItems = DB.get('customItems') || [];
+  const customMatch = customItems.find(ci => {
+    const cn = ci.name.toLowerCase().replace(/\*\*/g, '');
+    return cn.includes(q) || q.includes(cn.split(' ')[0]);
+  });
+  if (customMatch) {
+    const servingG = customMatch.servingSize || 100;
+    return {
+      source: 'custom',
+      sourceName: customMatch.name,
+      per100: {
+        cal:     Math.round(customMatch.cal     / servingG * 100),
+        protein: Math.round(customMatch.protein / servingG * 100 * 10) / 10,
+        fiber:   Math.round(customMatch.fiber   / servingG * 100 * 10) / 10,
+        carbs:   Math.round(customMatch.carbs   / servingG * 100 * 10) / 10,
+        fat:     Math.round(customMatch.fat     / servingG * 100 * 10) / 10,
+      }
+    };
+  }
+
+  // 3. USDA
+  const usdaNutrition = await lookupUSDANutrition(name);
+  if (usdaNutrition) {
+    return { source: 'usda', sourceName: name, per100: usdaNutrition };
+  }
+
+  // 4. Not found
+  return null;
+}
+
+function applyLookupResult(name, result) {
+  const preview      = document.getElementById('quick-nutrition-preview');
+  const customFields = document.getElementById('custom-nutrition-fields');
+  const badge        = document.getElementById('lookup-source-badge');
+  const display      = document.getElementById('selected-item-display');
+
+  const SOURCE_LABELS = {
+    recipe: { label: '📖 From Recipe Library', color: 'var(--accent2)' },
+    custom: { label: '⭐ From Custom Library',  color: 'var(--success)'  },
+    usda:   { label: '🔬 From USDA Database',   color: 'var(--accent)'   },
+  };
+
+  if (result) {
+    const n = result.per100;
+    selectedQuickItem = { name, nutrition: n, source: result.source };
+    display.textContent = result.sourceName;
+    badge.style.display = 'block';
+    const sl = SOURCE_LABELS[result.source];
+    badge.innerHTML = `<span style="color:${sl.color}">${sl.label}</span>`;
+    preview.style.display = 'block';
+    preview.innerHTML = `Per 100g: <strong>${n.cal} cal</strong> · ${n.protein}g pro · ${n.fiber}g fib · ${n.carbs}g carb · ${n.fat}g fat`;
+    customFields.style.display = 'none';
+    // pre-fill custom fields in case user wants to override
+    document.getElementById('ci-cal').value  = n.cal;
+    document.getElementById('ci-pro').value  = n.protein;
+    document.getElementById('ci-carb').value = n.carbs;
+    document.getElementById('ci-fat').value  = n.fat;
+    document.getElementById('ci-fib').value  = n.fiber;
+    document.getElementById('ci-serving').value = 100;
+  } else {
+    selectedQuickItem = { name, nutrition: null };
+    display.textContent = `"${name}" not found — enter nutrition below`;
+    badge.style.display = 'block';
+    badge.innerHTML = `<span style="color:var(--warn)">⚠️ Not found in Recipe Library, Custom Library, or USDA</span>`;
+    preview.style.display  = 'none';
+    customFields.style.display = 'block';
+    ['ci-cal','ci-pro','ci-carb','ci-fat','ci-fib'].forEach(id => {
+      const el = document.getElementById(id); if(el) el.value = '';
+    });
+  }
+}
+
+function updateCustomPreview() {
+  const cal  = parseFloat(document.getElementById('ci-cal').value)  || 0;
+  const pro  = parseFloat(document.getElementById('ci-pro').value)  || 0;
+  const carb = parseFloat(document.getElementById('ci-carb').value) || 0;
+  const fat  = parseFloat(document.getElementById('ci-fat').value)  || 0;
+  const fib  = parseFloat(document.getElementById('ci-fib').value)  || 0;
+  // store as per-100g for saveQuickLog consistency
+  const serving = parseFloat(document.getElementById('ci-serving').value) || 100;
+  selectedQuickItem = selectedQuickItem || { name: 'custom', nutrition: null };
+  selectedQuickItem.nutrition = {
+    cal:     Math.round(cal / serving * 100),
+    protein: Math.round(pro / serving * 100 * 10) / 10,
+    fiber:   Math.round(fib / serving * 100 * 10) / 10,
+    carbs:   Math.round(carb/ serving * 100 * 10) / 10,
+    fat:     Math.round(fat / serving * 100 * 10) / 10,
+  };
+  selectedQuickItem.isManual = true;
+}
+
+// ── Custom Items Library CRUD ──
+function openCustomItemModal(id=null) {
+  const item = id ? (DB.get('customItems')||[]).find(c=>c.id===id) : null;
+  document.getElementById('custom-item-modal-title').textContent = item ? 'Edit Custom Item' : 'New Custom Item';
+  document.getElementById('ci-edit-id').value      = id || '';
+  document.getElementById('ci-modal-name').value   = item?.name || '';
+  document.getElementById('ci-modal-cal').value    = item?.cal  || '';
+  document.getElementById('ci-modal-pro').value    = item?.protein || '';
+  document.getElementById('ci-modal-carb').value   = item?.carbs || '';
+  document.getElementById('ci-modal-fat').value    = item?.fat  || '';
+  document.getElementById('ci-modal-fib').value    = item?.fiber || '';
+  document.getElementById('ci-modal-serving').value = item?.servingSize || 100;
+  document.getElementById('custom-item-modal').classList.add('open');
+}
+
+function closeCustomItemModal() {
+  document.getElementById('custom-item-modal').classList.remove('open');
+}
+
+function saveCustomItemFromModal() {
+  const name = document.getElementById('ci-modal-name').value.trim();
+  if (!name) { alert('Enter an item name'); return; }
+  const editId = document.getElementById('ci-edit-id').value;
+  const item = {
+    id:          editId || (Date.now()+''),
+    name,
+    cal:         parseFloat(document.getElementById('ci-modal-cal').value)  || 0,
+    protein:     parseFloat(document.getElementById('ci-modal-pro').value)  || 0,
+    carbs:       parseFloat(document.getElementById('ci-modal-carb').value) || 0,
+    fat:         parseFloat(document.getElementById('ci-modal-fat').value)  || 0,
+    fiber:       parseFloat(document.getElementById('ci-modal-fib').value)  || 0,
+    servingSize: parseFloat(document.getElementById('ci-modal-serving').value) || 100,
+  };
+  let items = DB.get('customItems') || [];
+  const idx = items.findIndex(c => c.id === item.id);
+  if (idx >= 0) items[idx] = item; else items.push(item);
+  DB.set('customItems', items);
+  closeCustomItemModal();
+  showToast('Custom item saved!');
+  renderCustomItemsSettings();
+}
+
+function saveAsCustomItem() {
+  // Pre-fill modal from current custom fields
+  const name = document.getElementById('custom-item-input').value.trim()
+    || (selectedQuickItem?.name !== 'custom' ? selectedQuickItem?.name : '');
+  openCustomItemModal();
+  document.getElementById('ci-modal-name').value    = name;
+  document.getElementById('ci-modal-cal').value     = document.getElementById('ci-cal').value;
+  document.getElementById('ci-modal-pro').value     = document.getElementById('ci-pro').value;
+  document.getElementById('ci-modal-carb').value    = document.getElementById('ci-carb').value;
+  document.getElementById('ci-modal-fat').value     = document.getElementById('ci-fat').value;
+  document.getElementById('ci-modal-fib').value     = document.getElementById('ci-fib').value;
+  document.getElementById('ci-modal-serving').value = document.getElementById('ci-serving').value;
+}
+
+function deleteCustomItem(id) {
+  if (!confirm('Delete this custom item?')) return;
+  DB.set('customItems', (DB.get('customItems')||[]).filter(c=>c.id!==id));
+  renderCustomItemsSettings();
+}
+
+function renderCustomItemsSettings() {
+  const items = DB.get('customItems') || [];
+  const el = document.getElementById('custom-items-settings-list');
+  if (!el) return;
+  if (!items.length) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:0.82rem;margin-bottom:4px">No custom items yet</div>`;
+    return;
+  }
+  el.innerHTML = items.map(item => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1">
+        <div style="font-size:0.85rem;font-weight:500">${item.name}</div>
+        <div style="font-size:0.72rem;color:var(--muted);font-family:var(--mono)">${item.cal} cal · ${item.protein}g pro · per ${item.servingSize}g</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="openCustomItemModal('${item.id}')">Edit</button>
+      <button class="btn btn-ghost btn-sm" style="color:var(--danger);border-color:var(--danger)" onclick="deleteCustomItem('${item.id}')">×</button>
+    </div>`).join('');
+}
+
+async function lookupUSDANutrition(name) {
+  if (quickUSDACache[name]) return quickUSDACache[name];
+  try {
+    const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(name)}&dataType=Foundation,SR%20Legacy&pageSize=1&api_key=DEMO_KEY`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.foods || !data.foods.length) return null;
+    const f = data.foods[0];
+    const n = f.foodNutrients || [];
+    const get = (ids) => { for (const id of ids) { const x = n.find(x=>x.nutrientId===id||x.nutrientNumber===String(id)); if (x?.value!=null) return x.value; } return 0; };
+    const result = {
+      cal:     Math.round(get([1008,'208'])),
+      protein: Math.round(get([1003,'203'])*10)/10,
+      fiber:   Math.round(get([1079,'291'])*10)/10,
+      carbs:   Math.round(get([1005,'205'])*10)/10,
+      fat:     Math.round(get([1004,'204'])*10)/10,
+    };
+    quickUSDACache[name] = result;
+    return result;
+  } catch { return null; }
+}
+
+function saveQuickLog() {
+  if (!selectedQuickItem) { alert('Select an item first'); return; }
+  const qty = parseFloat(document.getElementById('item-quantity').value);
+  if (!qty || qty <= 0) { alert('Enter a quantity'); return; }
+  const unit = document.getElementById('item-unit').value;
+  const mealType = document.getElementById('meal-type').value;
   const mealDate = document.getElementById('meal-date').value || today();
+
+  let name = selectedQuickItem.name;
+  if (name === 'custom') {
+    name = document.getElementById('custom-item-input').value.trim() || 'Custom Item';
+  }
+
+  let nutrition;
+  const customFieldsVisible = document.getElementById('custom-nutrition-fields').style.display !== 'none';
+
+  if (customFieldsVisible || selectedQuickItem.isManual) {
+    // Use custom fields directly — already stored as per-100g by updateCustomPreview
+    // But if user didn't trigger updateCustomPreview, read fields directly
+    const cal  = parseFloat(document.getElementById('ci-cal').value)  || 0;
+    const pro  = parseFloat(document.getElementById('ci-pro').value)  || 0;
+    const carb = parseFloat(document.getElementById('ci-carb').value) || 0;
+    const fat  = parseFloat(document.getElementById('ci-fat').value)  || 0;
+    const fib  = parseFloat(document.getElementById('ci-fib').value)  || 0;
+    const serving = parseFloat(document.getElementById('ci-serving').value) || 100;
+    const grams = convertToGrams(qty, unit);
+    const factor = grams / serving;
+    nutrition = {
+      cal:     Math.round(cal  * factor),
+      protein: Math.round(pro  * factor * 10) / 10,
+      fiber:   Math.round(fib  * factor * 10) / 10,
+      carbs:   Math.round(carb * factor * 10) / 10,
+      fat:     Math.round(fat  * factor * 10) / 10,
+    };
+  } else if (selectedQuickItem.nutrition) {
+    // scale from per-100g based on unit conversion to grams
+    const grams = convertToGrams(qty, unit);
+    const factor = grams / 100;
+    const n = selectedQuickItem.nutrition;
+    nutrition = {
+      cal:     Math.round(n.cal * factor),
+      protein: Math.round(n.protein * factor * 10) / 10,
+      fiber:   Math.round(n.fiber * factor * 10) / 10,
+      carbs:   Math.round(n.carbs * factor * 10) / 10,
+      fat:     Math.round(n.fat * factor * 10) / 10,
+    };
+  } else {
+    nutrition = { cal:0, protein:0, fiber:0, carbs:0, fat:0 };
+  }
+
+  const label = `${name} (${qty} ${unit})`;
   DB.push('meals', {
-    date: mealDate, mealType: document.getElementById('meal-type').value,
-    items, cal:Math.round(cal), protein:Math.round(pro), fiber:Math.round(fib),
-    carbs:Math.round(crb), fat:Math.round(fat), type:'food', ts:Date.now()
+    date: mealDate, mealType, type: mealType === 'drink' ? 'drink' : 'food',
+    items: [{ name: label, ...nutrition }],
+    cal: nutrition.cal, protein: nutrition.protein, fiber: nutrition.fiber,
+    carbs: nutrition.carbs, fat: nutrition.fat,
+    quantity: qty, unit,
+    ts: Date.now()
   });
-  document.getElementById('meal-rows').innerHTML = '';
-  mealRows = [];
-  addMealRow();
-  showToast('Food entry saved!');
+
+  // reset form
+  document.querySelectorAll('.qp-btn').forEach(b => {
+    b.style.borderColor='var(--border)'; b.style.background='var(--surface2)'; b.style.color='var(--text)';
+  });
+  selectedQuickItem = null;
+  document.getElementById('item-quantity').value = '';
+  document.getElementById('selected-item-display').textContent = '';
+  document.getElementById('quick-nutrition-preview').style.display = 'none';
+  document.getElementById('custom-nutrition-fields').style.display = 'none';
+  document.getElementById('custom-item-input').style.display = 'none';
+  document.getElementById('custom-item-input').value = '';
+  document.getElementById('custom-lookup-btn').style.display = 'none';
+  const badge = document.getElementById('lookup-source-badge');
+  if (badge) badge.style.display = 'none';
+  ['ci-cal','ci-pro','ci-fib','ci-carb','ci-fat','ci-serving'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+
+  showToast(`${name} logged!`);
   renderTodaysMealsLog();
   renderToday();
 }
 
+function convertToGrams(qty, unit) {
+  if (unit === 'Grams') return qty;
+  if (unit === 'OZ') return qty * 28.3495;
+  if (unit === 'ML') return qty; // ml ≈ g for liquids
+  if (unit === 'Count') return qty * 100; // fallback
+  return qty;
+}
+
 function renderTodaysMealsLog() {
-  const todayMeals = (DB.get('meals')||[]).filter(m => m.date===today() && m.type!=='drink');
+  const todayMeals = (DB.get('meals')||[]).filter(m => m.date===today());
   const el = document.getElementById('todays-meals-log');
   if (!el) return;
   if (!todayMeals.length) { el.innerHTML = `<div class="empty">No food logged today</div>`; return; }
-  el.innerHTML = todayMeals.map(m => `
-    <div style="border-bottom:1px solid var(--border);padding:10px 0">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <strong style="font-size:0.85rem">${cap(m.mealType)}</strong>
-        <span style="font-family:var(--mono);font-size:0.75rem;color:var(--muted)">${m.cal} cal · ${m.protein}g pro</span>
+  el.innerHTML = todayMeals.map((m,i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1">
+        <div style="font-size:0.82rem;font-weight:500">${m.items?.[0]?.name || cap(m.mealType)}</div>
+        <div style="font-size:0.72rem;color:var(--muted);font-family:var(--mono)">${cap(m.mealType)} · ${m.cal} cal · ${m.protein}g pro</div>
       </div>
-      ${m.items.map(i=>`<div style="font-size:0.75rem;color:var(--muted)">${i.name}${i.cal?' · '+i.cal+' cal':''}</div>`).join('')}
+      <button onclick="deleteMealEntry(${i})" style="background:none;border:none;color:var(--danger);font-size:1rem;cursor:pointer;padding:4px 8px">×</button>
     </div>`).join('');
+}
+
+function deleteMealEntry(idx) {
+  const todayStr = today();
+  let meals = DB.get('meals') || [];
+  const todayMeals = meals.filter(m => m.date === todayStr);
+  const entry = todayMeals[idx];
+  if (!entry || !confirm(`Delete "${entry.items?.[0]?.name || 'this entry'}"?`)) return;
+  const globalIdx = meals.indexOf(entry);
+  if (globalIdx >= 0) meals.splice(globalIdx, 1);
+  DB.set('meals', meals);
+  renderTodaysMealsLog();
+  renderToday();
+}
+
+// Quick-pick settings management
+function renderQuickPickSettings() {
+  const items = getQuickPicks();
+  const el = document.getElementById('quickpick-settings-list');
+  if (!el) return;
+  el.innerHTML = items.map((name, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:0.85rem">${name}</span>
+      <button onclick="removeQuickPickItem(${i})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:0.9rem">×</button>
+    </div>`).join('');
+}
+
+function addQuickPickItem() {
+  const name = document.getElementById('new-quickpick-name').value.trim();
+  if (!name) return;
+  const items = getQuickPicks();
+  if (items.includes(name)) { alert('Already in list'); return; }
+  items.push(name);
+  DB.set('quickPicks', items);
+  document.getElementById('new-quickpick-name').value = '';
+  renderQuickPickSettings();
+  renderQuickPickGrid();
+  showToast('Item added!');
+}
+
+function removeQuickPickItem(idx) {
+  const items = getQuickPicks();
+  items.splice(idx, 1);
+  DB.set('quickPicks', items);
+  renderQuickPickSettings();
+  renderQuickPickGrid();
+}
+
+// ═══════════════════════════════════════════════════════
+// SUMMARY TABLE — Today / Yesterday / Week / Month
+// ═══════════════════════════════════════════════════════
+let currentSummaryTab = 'today';
+
+function showSummaryTab(tab) {
+  currentSummaryTab = tab;
+  ['today','yesterday','week','month'].forEach(t => {
+    document.getElementById('sum-tab-' + t)?.classList.toggle('active', t === tab);
+  });
+  renderSummaryTable();
+}
+
+function getMacrosForRange(startDate, endDate) {
+  const meals = DB.get('meals') || [];
+  const daily = DB.get('daily') || [];
+  const filtered = meals.filter(m => m.date >= startDate && m.date <= endDate);
+  const cal     = filtered.reduce((a,m) => a + (m.cal||0), 0);
+  const protein = filtered.reduce((a,m) => a + (m.protein||0), 0);
+  const carbs   = filtered.reduce((a,m) => a + (m.carbs||0), 0);
+  const fat     = filtered.reduce((a,m) => a + (m.fat||0), 0);
+  const fiber   = filtered.reduce((a,m) => a + (m.fiber||0), 0);
+  const waterRecs = daily.filter(d => d.date >= startDate && d.date <= endDate);
+  const water   = waterRecs.reduce((a,d) => a + (d.water||0), 0);
+  return { cal, protein, carbs, fat, fiber, water };
+}
+
+function renderSummaryTable() {
+  const el = document.getElementById('summary-table');
+  if (!el) return;
+
+  const todayStr = today();
+  const yday = new Date(); yday.setDate(yday.getDate()-1);
+  const ydayStr = yday.toISOString().split('T')[0];
+
+  // week start (Monday)
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  const weekStartStr = weekStart.toISOString().split('T')[0];
+
+  // month start
+  const monthStartStr = todayStr.substring(0,8) + '01';
+
+  let actuals, targets, days;
+  if (currentSummaryTab === 'today') {
+    actuals = getMacrosForRange(todayStr, todayStr);
+    days = 1;
+  } else if (currentSummaryTab === 'yesterday') {
+    actuals = getMacrosForRange(ydayStr, ydayStr);
+    days = 1;
+  } else if (currentSummaryTab === 'week') {
+    actuals = getMacrosForRange(weekStartStr, todayStr);
+    days = Math.max(1, Math.ceil((new Date(todayStr) - new Date(weekStartStr)) / 86400000) + 1);
+  } else {
+    actuals = getMacrosForRange(monthStartStr, todayStr);
+    days = Math.max(1, Math.ceil((new Date(todayStr) - new Date(monthStartStr)) / 86400000) + 1);
+  }
+
+  const macros = [
+    { key:'cal',     label:'Calories', goal: GOALS.calories * days, unit:'' },
+    { key:'protein', label:'Protein',  goal: GOALS.protein  * days, unit:'g' },
+    { key:'carbs',   label:'Carbs',    goal: 250            * days, unit:'g' },
+    { key:'fat',     label:'Fat',      goal: 65             * days, unit:'g' },
+    { key:'fiber',   label:'Fiber',    goal: GOALS.fiber    * days, unit:'g' },
+    { key:'water',   label:'Water',    goal: GOALS.water    * days, unit: UNITS==='metric'?'ml':'oz' },
+  ];
+
+  const STATUS_EMOJI = (pct) => pct >= 90 ? '✅' : pct >= 60 ? '🟡' : '⬜';
+
+  el.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:6px 4px;color:var(--muted);font-family:var(--mono);font-weight:500;border-bottom:1px solid var(--border)">Macro</th>
+          <th style="text-align:right;padding:6px 4px;color:var(--muted);font-family:var(--mono);font-weight:500;border-bottom:1px solid var(--border)">Target</th>
+          <th style="text-align:right;padding:6px 4px;color:var(--muted);font-family:var(--mono);font-weight:500;border-bottom:1px solid var(--border)">Actual</th>
+          <th style="text-align:right;padding:6px 4px;color:var(--muted);font-family:var(--mono);font-weight:500;border-bottom:1px solid var(--border)">% Goal</th>
+          <th style="text-align:center;padding:6px 4px;border-bottom:1px solid var(--border)"></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${macros.map(m => {
+          const actual = Math.round(actuals[m.key] || 0);
+          const pct = m.goal > 0 ? Math.round(actual / m.goal * 100) : 0;
+          const color = pct >= 90 ? 'var(--success)' : pct >= 60 ? 'var(--warn)' : 'var(--muted)';
+          return `<tr>
+            <td style="padding:7px 4px;font-weight:500">${m.label}</td>
+            <td style="padding:7px 4px;text-align:right;font-family:var(--mono);color:var(--muted)">${Math.round(m.goal)}${m.unit}</td>
+            <td style="padding:7px 4px;text-align:right;font-family:var(--mono)">${actual}${m.unit}</td>
+            <td style="padding:7px 4px;text-align:right;font-family:var(--mono);color:${color}">${pct}%</td>
+            <td style="padding:7px 4px;text-align:center">${STATUS_EMOJI(pct)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
 }
 
 // ═══════════════════════════════════════════════════════
 // DRINK PRESETS
 // ═══════════════════════════════════════════════════════
+
 function openDrinkPresetModal(id=null) {
   const preset = id ? (DB.get('drinkPresets')||[]).find(p=>p.id===id) : null;
   document.getElementById('drink-modal-title').textContent = preset ? 'Edit Drink' : 'New Drink Preset';
@@ -1601,7 +2168,7 @@ function openRecipeModal(id=null) {
   document.getElementById('recipe-ingredient-rows').innerHTML = '';
   recipeIngRows = [];
   if (recipe?.ingredients?.length) {
-    recipe.ingredients.forEach(i => addRecipeIngredientRow(i.name, i.cal, i.protein, i.fiber, i.carbs, i.fat));
+    recipe.ingredients.forEach(i => addRecipeIngredientRow(i.name, i.qty||'', i.unit||'Grams', i.cal, i.protein, i.fiber, i.carbs, i.fat, i.useCustom||false));
   } else {
     addRecipeIngredientRow();
   }
@@ -1614,18 +2181,101 @@ function closeRecipeModal() {
   document.getElementById('recipe-modal').classList.remove('open');
 }
 
-function addRecipeIngredientRow(name='', cal='', protein='', fiber='', carbs='', fat='') {
+function addRecipeIngredientRow(name='', qty='', unit='Grams', cal='', protein='', fiber='', carbs='', fat='', useCustom=false) {
   const id = Date.now() + Math.random();
   recipeIngRows.push(id);
   const row = document.createElement('div');
-  row.style.cssText = 'display:grid;grid-template-columns:1fr 42px 42px 42px 42px 42px 28px;gap:4px;margin-bottom:4px;align-items:center';
   row.id = 'rir-' + id;
-  const inp = (cls, ph, val) => `<input type="number" placeholder="${ph}" value="${val}" class="${cls}" style="padding:6px 4px;font-size:0.78rem;text-align:center" oninput="updateRecipeNutritionPer100()" min="0" step="0.1" />`;
+  row.style.cssText = 'margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;background:var(--surface2)';
   row.innerHTML = `
-    <input type="text" placeholder="Ingredient" value="${name}" class="rir-name" style="padding:6px 8px;font-size:0.8rem" oninput="updateRecipeNutritionPer100()" />
-    ${inp('rir-cal','0',cal)}${inp('rir-pro','0',protein)}${inp('rir-fib','0',fiber)}${inp('rir-crb','0',carbs)}${inp('rir-fat','0',fat)}
-    <button style="width:28px;height:32px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--danger);cursor:pointer;font-size:0.9rem" onclick="removeRecipeIngRow('${id}')">×</button>`;
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <input type="text" placeholder="Ingredient name" value="${name}" class="rir-name"
+        style="flex:1;padding:7px 8px;font-size:0.82rem"
+        onblur="autoLookupIngredient('${id}', this.value)" />
+      <button onclick="removeRecipeIngRow('${id}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--danger);cursor:pointer;width:28px;height:32px;flex-shrink:0">×</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <input type="number" placeholder="Qty" value="${qty}" class="rir-qty"
+        style="width:70px;padding:6px 8px;font-size:0.82rem" oninput="scaleIngredientNutrition('${id}')" />
+      <select class="rir-unit" onchange="scaleIngredientNutrition('${id}')"
+        style="width:90px;padding:6px 4px;font-size:0.82rem">
+        <option value="Grams" ${unit==='Grams'?'selected':''}>Grams</option>
+        <option value="OZ" ${unit==='OZ'?'selected':''}>OZ</option>
+        <option value="ML" ${unit==='ML'?'selected':''}>ML</option>
+        <option value="Count" ${unit==='Count'?'selected':''}>Count</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--muted);cursor:pointer;white-space:nowrap">
+        <input type="checkbox" class="rir-custom" ${useCustom?'checked':''} onchange="toggleIngredientCustom('${id}', this.checked)" style="width:14px;height:14px;accent-color:var(--accent)" />
+        Custom
+      </label>
+    </div>
+    <div class="rir-usda-status" style="font-size:0.7rem;color:var(--muted);font-family:var(--mono);margin-bottom:4px;min-height:14px"></div>
+    <div class="rir-nutrition-fields" style="${useCustom?'':'display:none'}">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:4px">
+        <div><div class="col-h">Cal</div><input type="number" class="rir-cal" value="${cal}" placeholder="0" style="padding:5px 4px;font-size:0.75rem;text-align:center;width:100%" oninput="updateRecipeNutritionPer100()" /></div>
+        <div><div class="col-h">Pro</div><input type="number" class="rir-pro" value="${protein}" placeholder="0" style="padding:5px 4px;font-size:0.75rem;text-align:center;width:100%" oninput="updateRecipeNutritionPer100()" /></div>
+        <div><div class="col-h">Fib</div><input type="number" class="rir-fib" value="${fiber}" placeholder="0" style="padding:5px 4px;font-size:0.75rem;text-align:center;width:100%" oninput="updateRecipeNutritionPer100()" /></div>
+        <div><div class="col-h">Crb</div><input type="number" class="rir-crb" value="${carbs}" placeholder="0" style="padding:5px 4px;font-size:0.75rem;text-align:center;width:100%" oninput="updateRecipeNutritionPer100()" /></div>
+        <div><div class="col-h">Fat</div><input type="number" class="rir-fat" value="${fat}" placeholder="0" style="padding:5px 4px;font-size:0.75rem;text-align:center;width:100%" oninput="updateRecipeNutritionPer100()" /></div>
+      </div>
+    </div>
+    <div class="rir-nutrition-preview" style="font-size:0.72rem;color:var(--muted);font-family:var(--mono);margin-top:4px"></div>`;
   document.getElementById('recipe-ingredient-rows').appendChild(row);
+  // Store per-100g USDA data on the row element for scaling
+  row._usdaPer100 = null;
+  row._usdaName = null;
+  updateRecipeNutritionPer100();
+}
+
+function toggleIngredientCustom(id, isCustom) {
+  const row = document.getElementById('rir-' + id);
+  if (!row) return;
+  row.querySelector('.rir-nutrition-fields').style.display = isCustom ? 'block' : 'none';
+  if (!isCustom && row._usdaPer100) scaleIngredientNutrition(id);
+  updateRecipeNutritionPer100();
+}
+
+async function autoLookupIngredient(id, name) {
+  if (!name.trim()) return;
+  const row = document.getElementById('rir-' + id);
+  if (!row) return;
+  const isCustom = row.querySelector('.rir-custom').checked;
+  if (isCustom) return; // don't auto-lookup if custom is checked
+  const status = row.querySelector('.rir-usda-status');
+  status.textContent = 'Looking up…';
+  const nutrition = await lookupUSDANutrition(name.trim());
+  if (nutrition) {
+    row._usdaPer100 = nutrition;
+    row._usdaName = name;
+    status.textContent = `✓ USDA: ${nutrition.cal} cal/100g`;
+    scaleIngredientNutrition(id);
+  } else {
+    status.textContent = '⚠ Not found — check "Custom" to enter manually';
+    row._usdaPer100 = null;
+  }
+}
+
+function scaleIngredientNutrition(id) {
+  const row = document.getElementById('rir-' + id);
+  if (!row || !row._usdaPer100) return;
+  const isCustom = row.querySelector('.rir-custom').checked;
+  if (isCustom) return;
+  const qty = parseFloat(row.querySelector('.rir-qty').value) || 0;
+  const unit = row.querySelector('.rir-unit').value;
+  const grams = convertToGrams(qty, unit);
+  const factor = grams / 100;
+  const n = row._usdaPer100;
+  const scaled = {
+    cal:     Math.round(n.cal * factor),
+    protein: Math.round(n.protein * factor * 10) / 10,
+    fiber:   Math.round(n.fiber * factor * 10) / 10,
+    carbs:   Math.round(n.carbs * factor * 10) / 10,
+    fat:     Math.round(n.fat * factor * 10) / 10,
+  };
+  row.querySelector('.rir-nutrition-preview').textContent =
+    `${scaled.cal} cal · ${scaled.protein}g pro · ${scaled.carbs}g carb · ${scaled.fat}g fat · ${scaled.fiber}g fib`;
+  // store scaled values for total calc
+  row._scaledNutrition = scaled;
   updateRecipeNutritionPer100();
 }
 
@@ -1637,11 +2287,22 @@ function removeRecipeIngRow(id) {
 
 function getRecipeTotals() {
   let cal=0,pro=0,fib=0,crb=0,fat=0;
-  document.querySelectorAll('.rir-cal').forEach(i=>cal+=parseFloat(i.value)||0);
-  document.querySelectorAll('.rir-pro').forEach(i=>pro+=parseFloat(i.value)||0);
-  document.querySelectorAll('.rir-fib').forEach(i=>fib+=parseFloat(i.value)||0);
-  document.querySelectorAll('.rir-crb').forEach(i=>crb+=parseFloat(i.value)||0);
-  document.querySelectorAll('.rir-fat').forEach(i=>fat+=parseFloat(i.value)||0);
+  document.querySelectorAll('#recipe-ingredient-rows > div').forEach(row => {
+    const isCustom = row.querySelector('.rir-custom')?.checked;
+    if (isCustom) {
+      cal += parseFloat(row.querySelector('.rir-cal')?.value)||0;
+      pro += parseFloat(row.querySelector('.rir-pro')?.value)||0;
+      fib += parseFloat(row.querySelector('.rir-fib')?.value)||0;
+      crb += parseFloat(row.querySelector('.rir-crb')?.value)||0;
+      fat += parseFloat(row.querySelector('.rir-fat')?.value)||0;
+    } else if (row._scaledNutrition) {
+      cal += row._scaledNutrition.cal;
+      pro += row._scaledNutrition.protein;
+      fib += row._scaledNutrition.fiber;
+      crb += row._scaledNutrition.carbs;
+      fat += row._scaledNutrition.fat;
+    }
+  });
   return {cal:Math.round(cal),protein:Math.round(pro*10)/10,fiber:Math.round(fib*10)/10,carbs:Math.round(crb*10)/10,fat:Math.round(fat*10)/10};
 }
 
@@ -1668,14 +2329,23 @@ function saveRecipe() {
   const ingredients = [];
   document.querySelectorAll('#recipe-ingredient-rows > div').forEach(row => {
     const n = row.querySelector('.rir-name')?.value.trim();
-    if (n) ingredients.push({
-      name:n,
-      cal:   parseFloat(row.querySelector('.rir-cal')?.value)||0,
-      protein:parseFloat(row.querySelector('.rir-pro')?.value)||0,
-      fiber: parseFloat(row.querySelector('.rir-fib')?.value)||0,
-      carbs: parseFloat(row.querySelector('.rir-crb')?.value)||0,
-      fat:   parseFloat(row.querySelector('.rir-fat')?.value)||0
-    });
+    if (!n) return;
+    const isCustom = row.querySelector('.rir-custom')?.checked;
+    const qty = parseFloat(row.querySelector('.rir-qty')?.value) || 0;
+    const unit = row.querySelector('.rir-unit')?.value || 'Grams';
+    let cal, protein, fiber, carbs, fat;
+    if (isCustom) {
+      cal     = parseFloat(row.querySelector('.rir-cal')?.value)||0;
+      protein = parseFloat(row.querySelector('.rir-pro')?.value)||0;
+      fiber   = parseFloat(row.querySelector('.rir-fib')?.value)||0;
+      carbs   = parseFloat(row.querySelector('.rir-crb')?.value)||0;
+      fat     = parseFloat(row.querySelector('.rir-fat')?.value)||0;
+    } else if (row._scaledNutrition) {
+      ({cal, protein, fiber, carbs, fat} = row._scaledNutrition);
+    } else {
+      cal=protein=fiber=carbs=fat=0;
+    }
+    ingredients.push({ name:n, qty, unit, cal, protein, fiber, carbs, fat, useCustom:isCustom });
   });
   const tot = getRecipeTotals();
   const recipe = {
@@ -1822,7 +2492,9 @@ function renderToday() {
   const water = daily ? daily.water : 0;
   const steps = exercise.filter(e=>e.type==='walking').reduce((a,e)=>a+(e.steps||0),0);
 
-  // update water quick-add card
+  // update summary table
+  renderSummaryTable();
+  // update water display card
   setTimeout(updateWaterDisplay, 0);
 
   // rings
@@ -2534,6 +3206,8 @@ function initSettings() {
   document.getElementById('goal-fib').value   = GOALS.fiber;
   document.getElementById('goal-water').value = GOALS.water;
   document.getElementById('goal-steps').value = GOALS.steps;
+  renderCustomItemsSettings();
+  renderQuickPickSettings();
   initReminders();
 }
 
@@ -2544,6 +3218,10 @@ function exportData() {
     exercise:DB.get('exercise')|| [],
     daily:   DB.get('daily')   || [],
     injections: DB.get('injections') || [],
+    recipes: DB.get('recipes') || [],
+    drinkPresets: DB.get('drinkPresets') || [],
+    quickPicks: DB.get('quickPicks') || DEFAULT_QUICK_PICKS,
+    customItems: DB.get('customItems') || [],
     goals: GOALS, units: UNITS,
     exported: new Date().toISOString()
   };
@@ -2552,6 +3230,34 @@ function exportData() {
   a.href = URL.createObjectURL(blob);
   a.download = 'zeptrack-backup-' + today() + '.json';
   a.click();
+}
+
+function importFromJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (!confirm('⚠️ This will overwrite your existing meals, weights, exercise, daily check-ins, injections, recipes, and drink presets. Continue?')) {
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      // Overwrite each key present in the backup
+      const keys = ['weights','meals','exercise','daily','injections','recipes','drinkPresets','goals','units','quickPicks','customItems'];
+      keys.forEach(k => { if (data[k] !== undefined) DB.set(k, data[k]); });
+      if (data.goals) { Object.assign(GOALS, data.goals); }
+      if (data.units) { UNITS = data.units; }
+      showToast('Data restored!');
+      initSettings();
+      renderToday();
+      input.value = '';
+    } catch(err) {
+      alert('Invalid JSON file. Please use a file exported from ZepTrack.');
+      input.value = '';
+    }
+  };
+  reader.readAsText(file);
 }
 
 function copyToClipboard(mode) {
@@ -2818,9 +3524,18 @@ function addFoodFromSearch() {
   const qty = parseFloat(document.getElementById('food-qty').value) || 1;
   const portionLabel = foodSearchSelected.portions[portionIdx].label;
   const label = qty === 1 ? `${foodSearchSelected.name} (${portionLabel})` : `${foodSearchSelected.name} ×${qty} (${portionLabel})`;
-  addMealRow(label, c.cal, c.protein, c.fiber, c.carbs, c.fat);
+  const mealType = document.getElementById('meal-type').value;
+  const mealDate = document.getElementById('meal-date').value || today();
+  DB.push('meals', {
+    date: mealDate, mealType, type: 'food',
+    items: [{ name: label, cal:c.cal, protein:c.protein, fiber:c.fiber, carbs:c.carbs, fat:c.fat }],
+    cal: c.cal, protein: c.protein, fiber: c.fiber, carbs: c.carbs, fat: c.fat,
+    ts: Date.now()
+  });
   closeFoodSearch();
-  showToast('Added to meal!');
+  showToast('Added to log!');
+  renderTodaysMealsLog();
+  renderToday();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2940,14 +3655,21 @@ function addScannedItem() {
   if (!scannedProduct) return;
   const s = parseFloat(document.getElementById('scan-servings').value) || 1;
   const p = scannedProduct;
-  addMealRow(
-    p.name + (s !== 1 ? ` (×${s})` : ''),
-    Math.round(p.cal * s),
-    Math.round(p.protein * s * 10) / 10,
-    Math.round(p.fiber * s * 10) / 10
-  );
+  const label = p.name + (s !== 1 ? ` (×${s})` : '');
+  const mealType = document.getElementById('meal-type').value;
+  const mealDate = document.getElementById('meal-date').value || today();
+  DB.push('meals', {
+    date: mealDate, mealType, type: 'food',
+    items: [{ name: label, cal: Math.round(p.cal*s), protein: Math.round(p.protein*s*10)/10,
+              fiber: Math.round(p.fiber*s*10)/10, carbs: 0, fat: 0 }],
+    cal: Math.round(p.cal*s), protein: Math.round(p.protein*s*10)/10,
+    fiber: Math.round(p.fiber*s*10)/10, carbs: 0, fat: 0,
+    ts: Date.now()
+  });
   closeBarcodeScanner();
-  showToast('Added to meal!');
+  showToast('Added to log!');
+  renderTodaysMealsLog();
+  renderToday();
 }
 
 // Pill toggles — single-select groups
@@ -2979,9 +3701,9 @@ document.getElementById('inj-date').value = today();
 document.getElementById('meal-date').value = today();
 document.getElementById('ex-date').value = today();
 document.getElementById('daily-date').value = today();
-addMealRow();
 initSettings();
 initReminders();
+renderQuickPickGrid();
 renderToday();
 
 // SW for PWA
