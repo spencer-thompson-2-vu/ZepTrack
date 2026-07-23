@@ -977,12 +977,24 @@
     <!-- PROGRESS VIEW -->
     <div class="view" id="v-progress">
       <div class="tabs">
-        <button class="tab active" onclick="showProgressTab('weight')">Weight</button>
-        <button class="tab" onclick="showProgressTab('nutrition')">Nutrition</button>
+        <button class="tab active" onclick="showProgressTab('nutrition')">Nutrition</button>
+        <button class="tab" onclick="showProgressTab('weight')">Weight</button>
         <button class="tab" onclick="showProgressTab('wellness')">Wellness</button>
       </div>
 
-      <div id="ptab-weight">
+      <div id="ptab-nutrition">
+        <div class="card">
+          <div class="card-title">7-Day Averages vs Goals</div>
+          <div id="nutrition-averages"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">30-Day Macro Trend</div>
+          <div id="macro-chart-legend" style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:10px;font-size:0.7rem;font-family:var(--mono)"></div>
+          <div class="chart-wrap"><canvas id="cal-chart" height="200"></canvas></div>
+        </div>
+      </div>
+
+      <div id="ptab-weight" style="display:none">
         <div class="card">
           <div class="card-title">Weight History</div>
           <div style="display:flex;gap:16px;margin-bottom:8px;font-size:0.72rem;font-family:var(--mono)">
@@ -994,18 +1006,6 @@
         <div class="card">
           <div class="card-title">Stats</div>
           <div id="weight-stats"></div>
-        </div>
-      </div>
-
-      <div id="ptab-nutrition" style="display:none">
-        <div class="card">
-          <div class="card-title">7-Day Averages vs Goals</div>
-          <div id="nutrition-averages"></div>
-        </div>
-        <div class="card">
-          <div class="card-title">30-Day Macro Trend</div>
-          <div id="macro-chart-legend" style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:10px;font-size:0.7rem;font-family:var(--mono)"></div>
-          <div class="chart-wrap"><canvas id="cal-chart" height="200"></canvas></div>
         </div>
       </div>
 
@@ -2003,12 +2003,10 @@ function renderSummaryTable() {
   }
 
   const macros = [
+    { key:'water',   label:'Water',    goal: GOALS.water    * days, unit: UNITS==='metric'?'ml':'oz' },
     { key:'cal',     label:'Calories', goal: GOALS.calories * days, unit:'' },
     { key:'protein', label:'Protein',  goal: GOALS.protein  * days, unit:'g' },
-    { key:'carbs',   label:'Carbs',    goal: 250            * days, unit:'g' },
-    { key:'fat',     label:'Fat',      goal: 65             * days, unit:'g' },
     { key:'fiber',   label:'Fiber',    goal: GOALS.fiber    * days, unit:'g' },
-    { key:'water',   label:'Water',    goal: GOALS.water    * days, unit: UNITS==='metric'?'ml':'oz' },
   ];
 
   const STATUS_EMOJI = (pct) => pct >= 90 ? '✅' : pct >= 60 ? '🟡' : '⬜';
@@ -2461,17 +2459,19 @@ function logRecipePortion() {
 }
 
 function showProgressTab(tab) {
-  ['weight','nutrition','wellness'].forEach(t => {
+  ['nutrition','weight','wellness'].forEach(t => {
     document.getElementById('ptab-' + t).style.display = t === tab ? 'block' : 'none';
   });
   document.querySelectorAll('#v-progress .tab').forEach((b,i) => {
-    const tabs = ['weight','nutrition','wellness'];
+    const tabs = ['nutrition','weight','wellness'];
     b.classList.toggle('active', tabs[i] === tab);
   });
   if (tab === 'weight')    drawWeightChart();
   if (tab === 'nutrition') renderNutritionProgress();
   if (tab === 'wellness')  drawWellnessChart();
 }
+
+function renderProgress() { showProgressTab('nutrition'); }
 
 // ═══════════════════════════════════════════════════════
 // TODAY
@@ -2481,8 +2481,10 @@ function today() { return new Date().toISOString().split('T')[0]; }
 function renderToday() {
   // header date
   const d = new Date();
-  document.getElementById('hdrDate').textContent =
-    d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  document.getElementById('hdrDate').innerHTML =
+    d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) +
+    ' <span style="color:var(--border);margin:0 4px">·</span>' +
+    '<span style="color:var(--muted);font-size:0.65rem">v3.0</span>';
 
   const todayStr = today();
   const meals = (DB.get('meals') || []).filter(m => m.date === todayStr);
@@ -2503,9 +2505,9 @@ function renderToday() {
 
   // rings
   const ringData = [
-    { label: 'Cal',     val: totalCal, goal: GOALS.calories, color: '#6c8aff' },
-    { label: 'Protein', val: totalPro,  goal: GOALS.protein,  color: '#a78bfa' },
     { label: 'Water',   val: water,     goal: GOALS.water,    color: '#38bdf8' },
+    { label: 'Cal',     val: totalCal,  goal: GOALS.calories, color: '#6c8aff' },
+    { label: 'Protein', val: totalPro,  goal: GOALS.protein,  color: '#a78bfa' },
     { label: 'Fiber',   val: totalFib,  goal: GOALS.fiber,    color: '#34d399' },
   ];
 
@@ -3065,12 +3067,10 @@ function renderNutritionProgress() {
   };
 
   const MACROS = [
-    { name:'Calories', key:'cal',     goal:GOALS.calories, color:'#f87171', unit:''  },
-    { name:'Protein',  key:'protein', goal:GOALS.protein,  color:'#34d399', unit:'g' },
-    { name:'Carbs',    key:'carbs',   goal:250,            color:'#fbbf24', unit:'g' },
-    { name:'Fat',      key:'fat',     goal:65,             color:'#fb923c', unit:'g' },
-    { name:'Fiber',    key:'fiber',   goal:GOALS.fiber,    color:'#a78bfa', unit:'g' },
     { name:'Water',    key:'water',   goal:GOALS.water,    color:'#38bdf8', unit: getWaterUnit() },
+    { name:'Calories', key:'cal',     goal:GOALS.calories, color:'#6c8aff', unit:''  },
+    { name:'Protein',  key:'protein', goal:GOALS.protein,  color:'#a78bfa', unit:'g' },
+    { name:'Fiber',    key:'fiber',   goal:GOALS.fiber,    color:'#34d399', unit:'g' },
   ];
 
   document.getElementById('nutrition-averages').innerHTML = MACROS.map(m => {
