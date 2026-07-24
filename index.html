@@ -2005,8 +2005,15 @@ function getMacrosForRange(startDate, endDate) {
   const carbs   = filtered.reduce((a,m) => a + (m.carbs||0), 0);
   const fat     = filtered.reduce((a,m) => a + (m.fat||0), 0);
   const fiber   = filtered.reduce((a,m) => a + (m.fiber||0), 0);
+
+  // water: prefer daily check-in record, fall back to water meal entries
   const waterRecs = daily.filter(d => d.date >= startDate && d.date <= endDate);
-  const water   = waterRecs.reduce((a,d) => a + (d.water||0), 0);
+  const dailyWater = waterRecs.reduce((a,d) => a + (d.water||0), 0);
+  const mealWater = filtered
+    .filter(m => (m.items?.[0]?.name||'').toLowerCase().includes('water'))
+    .reduce((a,m) => a + (m.quantity||0), 0);
+  const water = dailyWater > 0 ? dailyWater : mealWater;
+
   return { cal, protein, carbs, fat, fiber, water };
 }
 
@@ -2527,7 +2534,7 @@ function renderToday() {
   document.getElementById('hdrDate').innerHTML =
     d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) +
     ' <span style="color:var(--border);margin:0 4px">·</span>' +
-    '<span style="color:var(--muted);font-size:0.65rem">v3.6</span>';
+    '<span style="color:var(--muted);font-size:0.65rem">v3.7</span>';
 
   const todayStr = today();
   const meals = (DB.get('meals') || []).filter(m => m.date === todayStr);
@@ -2538,7 +2545,13 @@ function renderToday() {
   let totalCal = 0, totalPro = 0, totalFib = 0;
   const allIntakeForTotals = (DB.get('meals')||[]).filter(m=>m.date===todayStr);
   allIntakeForTotals.forEach(m => { totalCal += m.cal||0; totalPro += m.protein||0; totalFib += m.fiber||0; });
-  const water = daily ? daily.water : 0;
+
+  // water = daily check-in record + any water meal entries (quick-log stores as meals)
+  const dailyWater = daily ? daily.water || 0 : 0;
+  const mealWater = allIntakeForTotals
+    .filter(m => (m.items?.[0]?.name||'').toLowerCase().includes('water'))
+    .reduce((a,m) => a + (m.quantity||0), 0);
+  const water = dailyWater > 0 ? dailyWater : mealWater;
   const steps = exercise.filter(e=>e.type==='walking').reduce((a,e)=>a+(e.steps||0),0);
 
   // update summary table
@@ -3118,9 +3131,14 @@ function renderNutritionProgress() {
   // 7-day averages
   const dayTotal = (days, key) =>
     avg(days.map(d => meals.filter(m=>m.date===d).reduce((a,m)=>a+(m[key]||0),0)));
-  const waterAvg = d => {
+  const waterForDay = d => {
     const rec = dailys.find(x=>x.date===d);
-    return rec ? (rec.water||0) : 0;
+    const dailyW = rec ? (rec.water||0) : 0;
+    if (dailyW > 0) return dailyW;
+    // fall back to water meal entries for that day
+    return meals
+      .filter(m => m.date===d && (m.items?.[0]?.name||'').toLowerCase().includes('water'))
+      .reduce((a,m) => a + (m.quantity||0), 0);
   };
 
   const MACROS = [
@@ -3132,7 +3150,7 @@ function renderNutritionProgress() {
 
   document.getElementById('nutrition-averages').innerHTML = MACROS.map(m => {
     const val = m.key === 'water'
-      ? avg(last7.map(d => waterAvg(d)))
+      ? avg(last7.map(d => waterForDay(d)))
       : dayTotal(last7, m.key);
     const pct = Math.min((val / m.goal) * 100, 100);
     return `<div class="bar-wrap">
@@ -3152,7 +3170,7 @@ function renderNutritionProgress() {
     color: m.color,
     data: last30.map(d => {
       const val = m.key === 'water'
-        ? waterAvg(d)
+        ? waterForDay(d)
         : meals.filter(x=>x.date===d).reduce((a,x)=>a+(x[m.key]||0),0);
       return val > 0 ? Math.round(val / m.goal * 100) : null;
     })
@@ -3449,8 +3467,14 @@ function addWater(oz) {
 
 function updateWaterDisplay() {
   const dailys = DB.get('daily') || [];
-  const rec = dailys.find(d => d.date === today());
-  const oz = rec ? (rec.water || 0) : 0;
+  const meals  = DB.get('meals') || [];
+  const todayStr = today();
+  const rec = dailys.find(d => d.date === todayStr);
+  const dailyOz = rec ? (rec.water||0) : 0;
+  const mealOz = meals
+    .filter(m => m.date===todayStr && (m.items?.[0]?.name||'').toLowerCase().includes('water'))
+    .reduce((a,m) => a + (m.quantity||0), 0);
+  const oz = dailyOz > 0 ? dailyOz : mealOz;
   const el = document.getElementById('water-today-val');
   const ring = document.getElementById('water-ring');
   const lbl = document.getElementById('water-goal-label');
