@@ -1135,9 +1135,18 @@
       </div>
 
       <div class="card">
-        <div class="card-title">Data</div>
+        <div class="card-title">App Update</div>
         <div class="settings-row">
           <div>
+            <div class="settings-label">Check for Update</div>
+            <div class="settings-sub" id="update-status">Checks GitHub for latest version</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="checkForUpdate()">Update</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Data</div>
         <div class="settings-row">
           <div>
             <div class="settings-label">Export All Data</div>
@@ -2515,7 +2524,7 @@ function renderToday() {
   document.getElementById('hdrDate').innerHTML =
     d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) +
     ' <span style="color:var(--border);margin:0 4px">·</span>' +
-    '<span style="color:var(--muted);font-size:0.65rem">v3.2</span>';
+    '<span style="color:var(--muted);font-size:0.65rem">v3.3</span>';
 
   const todayStr = today();
   const meals = (DB.get('meals') || []).filter(m => m.date === todayStr);
@@ -3488,6 +3497,59 @@ function initSettings() {
   renderCustomItemsSettings();
   renderQuickPickSettings();
   initReminders();
+}
+
+function checkForUpdate() {
+  const status = document.getElementById('update-status');
+  status.textContent = 'Checking…';
+
+  if (!('serviceWorker' in navigator)) {
+    status.textContent = 'Service worker not available — try refreshing manually.';
+    return;
+  }
+
+  navigator.serviceWorker.getRegistration().then(reg => {
+    if (!reg) {
+      status.textContent = 'Not installed as PWA — refresh the page to update.';
+      return;
+    }
+
+    // Tell SW to check for a new version
+    reg.update().then(() => {
+      // If a new SW is waiting, activate it and reload
+      if (reg.waiting) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        status.textContent = 'Update found! Reloading…';
+        setTimeout(() => window.location.reload(true), 800);
+        return;
+      }
+
+      // Listen for a new SW installing
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        newSW.addEventListener('statechange', () => {
+          if (newSW.state === 'installed') {
+            newSW.postMessage({ type: 'SKIP_WAITING' });
+            status.textContent = 'Update found! Reloading…';
+            setTimeout(() => window.location.reload(true), 800);
+          }
+        });
+      });
+
+      // Give it 4 seconds — if nothing found, already up to date
+      setTimeout(() => {
+        if (status.textContent === 'Checking…') {
+          status.textContent = 'Already up to date ✓';
+          setTimeout(() => { status.textContent = 'Checks GitHub for latest version'; }, 3000);
+        }
+      }, 4000);
+    }).catch(() => {
+      // Fallback: clear caches and hard reload
+      status.textContent = 'Clearing cache and reloading…';
+      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
+        .then(() => window.location.reload(true));
+    });
+  });
 }
 
 function exportData() {
