@@ -1,9 +1,8 @@
-const CACHE = 'zeptrack-v4';
+const CACHE = 'zeptrack-v5';
 const ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
-  // Don't skip waiting automatically — let the app trigger it
 });
 
 self.addEventListener('activate', e => {
@@ -14,6 +13,33 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+  const filename = url.pathname.split('/').pop();
+
+  // sw.js and manifest.json: always network-first, never serve stale
+  if (filename === 'sw.js' || filename === 'manifest.json') {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // index.html: network-first so updates are picked up automatically
+  if (filename === 'index.html' || url.pathname.endsWith('/')) {
+    e.respondWith(
+      fetch(e.request)
+        .then(response => {
+          // cache the fresh copy
+          const clone = response.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+          return response;
+        })
+        .catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // everything else: cache-first
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
   );
