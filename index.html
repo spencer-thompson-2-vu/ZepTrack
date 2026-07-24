@@ -2527,7 +2527,7 @@ function renderToday() {
   document.getElementById('hdrDate').innerHTML =
     d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) +
     ' <span style="color:var(--border);margin:0 4px">·</span>' +
-    '<span style="color:var(--muted);font-size:0.65rem">v3.5</span>';
+    '<span style="color:var(--muted);font-size:0.65rem">v3.6</span>';
 
   const todayStr = today();
   const meals = (DB.get('meals') || []).filter(m => m.date === todayStr);
@@ -2746,6 +2746,8 @@ function saveDailyCheckin() {
   const rec  = { date: dailyDate, water, energy, mood, sideEffects, notes, ts: Date.now() };
   if (idx >= 0) dailys[idx] = rec; else dailys.push(rec);
   DB.set('daily', dailys);
+  updateWaterDisplay();
+  renderToday();
   showToast('Check-in saved!');
 }
 
@@ -3441,6 +3443,7 @@ function addWater(oz) {
   }
   DB.set('daily', dailys);
   updateWaterDisplay();
+  renderToday();
   showToast(`+${oz}oz water!`);
 }
 
