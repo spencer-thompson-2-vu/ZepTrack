@@ -1490,7 +1490,7 @@ function showView(id) {
   const map = {'v-today':'nav-today','v-log':'nav-log','v-progress':'nav-progress','v-history':'nav-history','v-settings':'nav-settings'};
   if (map[id]) document.getElementById(map[id]).classList.add('active');
   if (id === 'v-today')    renderToday();
-  if (id === 'v-progress') renderProgress();
+  if (id === 'v-progress') requestAnimationFrame(() => renderProgress());
   if (id === 'v-history')  renderHistory('all');
   if (id === 'v-settings') initSettings();
 }
@@ -2506,9 +2506,12 @@ function showProgressTab(tab) {
     const tabs = ['nutrition','weight','wellness'];
     b.classList.toggle('active', tabs[i] === tab);
   });
-  if (tab === 'weight')    drawWeightChart();
-  if (tab === 'nutrition') renderNutritionProgress();
-  if (tab === 'wellness')  drawWellnessChart();
+  // defer chart drawing so container is visible and has width
+  requestAnimationFrame(() => {
+    if (tab === 'weight')    drawWeightChart();
+    if (tab === 'nutrition') renderNutritionProgress();
+    if (tab === 'wellness')  drawWellnessChart();
+  });
 }
 
 function renderProgress() { showProgressTab('nutrition'); }
@@ -2524,7 +2527,7 @@ function renderToday() {
   document.getElementById('hdrDate').innerHTML =
     d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) +
     ' <span style="color:var(--border);margin:0 4px">·</span>' +
-    '<span style="color:var(--muted);font-size:0.65rem">v3.3</span>';
+    '<span style="color:var(--muted);font-size:0.65rem">v3.4</span>';
 
   const todayStr = today();
   const meals = (DB.get('meals') || []).filter(m => m.date === todayStr);
@@ -2936,7 +2939,7 @@ function drawLineChart(canvasId, labels, datasets, opts={}) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  canvas.width = canvas.parentElement.offsetWidth || 320;
+  canvas.width = canvas.parentElement.offsetWidth || canvas.closest('.card')?.offsetWidth || 320;
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0,0,W,H);
 
@@ -3195,11 +3198,11 @@ function nutritionChips(entry) {
     const vol  = entry.drinkVolume || entry.quantity || '';
     const unit = entry.unit || getWaterUnit();
     if (vol) chips.push(`<span style="color:${METRIC_COLORS.water};font-size:0.72rem;font-family:var(--mono)">${vol} ${unit}</span>`);
-    if (entry.cal) chips.push(`<span style="color:${METRIC_COLORS.cal};font-size:0.72rem;font-family:var(--mono)">${Math.round(entry.cal)} cal</span>`);
+    if (entry.cal != null) chips.push(`<span style="color:${METRIC_COLORS.cal};font-size:0.72rem;font-family:var(--mono)">${Math.round(entry.cal)} cal</span>`);
   } else {
-    if (entry.cal)     chips.push(`<span style="color:${METRIC_COLORS.cal};font-size:0.72rem;font-family:var(--mono)">${Math.round(entry.cal)} cal</span>`);
-    if (entry.protein) chips.push(`<span style="color:${METRIC_COLORS.protein};font-size:0.72rem;font-family:var(--mono)">${+(entry.protein).toFixed(1)}g</span>`);
-    if (entry.fiber)   chips.push(`<span style="color:${METRIC_COLORS.fiber};font-size:0.72rem;font-family:var(--mono)">${+(entry.fiber).toFixed(1)}g fiber</span>`);
+    if (entry.cal != null)     chips.push(`<span style="color:${METRIC_COLORS.cal};font-size:0.72rem;font-family:var(--mono)">${Math.round(entry.cal)} cal</span>`);
+    if (entry.protein != null) chips.push(`<span style="color:${METRIC_COLORS.protein};font-size:0.72rem;font-family:var(--mono)">${+(entry.protein).toFixed(1)}g</span>`);
+    if (entry.fiber != null)   chips.push(`<span style="color:${METRIC_COLORS.fiber};font-size:0.72rem;font-family:var(--mono)">${+(entry.fiber).toFixed(1)}g fiber</span>`);
   }
   return chips.join('<span style="color:var(--border);margin:0 3px">·</span>');
 }
