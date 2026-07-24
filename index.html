@@ -2527,7 +2527,7 @@ function renderToday() {
   document.getElementById('hdrDate').innerHTML =
     d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) +
     ' <span style="color:var(--border);margin:0 4px">·</span>' +
-    '<span style="color:var(--muted);font-size:0.65rem">v3.4</span>';
+    '<span style="color:var(--muted);font-size:0.65rem">v3.5</span>';
 
   const todayStr = today();
   const meals = (DB.get('meals') || []).filter(m => m.date === todayStr);
