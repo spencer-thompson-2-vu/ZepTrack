@@ -1446,7 +1446,15 @@ const DB = {
 // DEFAULTS
 const DEFAULT_GOALS = { calories: 1600, protein: 120, fiber: 25, water: 64, steps: 8000 };
 let GOALS = Object.assign({}, DEFAULT_GOALS, DB.get('goals') || {});
-let UNITS = DB.get('units') || 'imperial'; // 'imperial' | 'metric'
+let UNITS = DB.get('units') || 'imperial';
+
+// Metric color constants — used across Today, History, Progress
+const METRIC_COLORS = {
+  water:   '#38bdf8',
+  cal:     '#6c8aff',
+  protein: '#a78bfa',
+  fiber:   '#34d399',
+}; // 'imperial' | 'metric'
 
 function getWaterUnit() { return UNITS === 'metric' ? 'ml' : 'oz'; }
 function getWeightUnit() { return UNITS === 'metric' ? 'kg' : 'lbs'; }
@@ -1856,13 +1864,23 @@ function saveQuickLog() {
     nutrition = { cal:0, protein:0, fiber:0, carbs:0, fat:0 };
   }
 
+  // Water always has zero nutrition regardless of USDA data
+  const isWater = name.toLowerCase() === 'water';
+  if (isWater) {
+    nutrition = { cal:0, protein:0, fiber:0, carbs:0, fat:0 };
+  }
+
   const label = `${name} (${qty} ${unit})`;
+  const isdrink = mealType === 'drink' || isWater;
   DB.push('meals', {
-    date: mealDate, mealType, type: mealType === 'drink' ? 'drink' : 'food',
+    date: mealDate, mealType: isWater ? 'drink' : mealType,
+    type: isdrink ? 'drink' : 'food',
     items: [{ name: label, ...nutrition }],
     cal: nutrition.cal, protein: nutrition.protein, fiber: nutrition.fiber,
     carbs: nutrition.carbs, fat: nutrition.fat,
     quantity: qty, unit,
+    drinkName: isdrink ? name : undefined,
+    drinkVolume: isdrink ? qty : undefined,
     ts: Date.now()
   });
 
@@ -2497,7 +2515,7 @@ function renderToday() {
   document.getElementById('hdrDate').innerHTML =
     d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) +
     ' <span style="color:var(--border);margin:0 4px">·</span>' +
-    '<span style="color:var(--muted);font-size:0.65rem">v3.0</span>';
+    '<span style="color:var(--muted);font-size:0.65rem">v3.2</span>';
 
   const todayStr = today();
   const meals = (DB.get('meals') || []).filter(m => m.date === todayStr);
@@ -3162,13 +3180,6 @@ function drawWellnessChart() {
 // ═══════════════════════════════════════════════════════
 // NUTRITION CHIP HELPER
 // ═══════════════════════════════════════════════════════
-const METRIC_COLORS = {
-  water:   '#38bdf8',
-  cal:     '#6c8aff',
-  protein: '#a78bfa',
-  fiber:   '#34d399',
-};
-
 function nutritionChips(entry) {
   const chips = [];
   if (entry.type === 'drink' || entry.mealType === 'drink') {
@@ -3213,7 +3224,7 @@ function renderHistory(filter) {
       header = `${x.date} · Weight`;
       body = `<strong style="color:${METRIC_COLORS.cal}">${displayWeight(x.weight)}</strong>${x.notes?` <span style="color:var(--muted);font-size:0.72rem">· ${x.notes}</span>`:''}`;
     } else if (x._type === 'meal') {
-      header = `${x.date} · ${cap(x.mealType)}`;
+      header = `${x.date} · Meal · ${cap(x.mealType)}`;
       body = `<span style="font-weight:500">${entryName(x)}</span>
         <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:3px">${nutritionChips(x)}</div>`;
     } else if (x._type === 'exercise') {
@@ -3969,8 +3980,25 @@ document.getElementById('inj-date').value = today();
 document.getElementById('meal-date').value = today();
 document.getElementById('ex-date').value = today();
 document.getElementById('daily-date').value = today();
+// Migrate existing water entries — zero out any nutrition USDA incorrectly assigned
+function migrateWaterEntries() {
+  let meals = DB.get('meals') || [];
+  let changed = false;
+  meals = meals.map(m => {
+    const name = (m.items?.[0]?.name || m.drinkName || '').toLowerCase();
+    if (name.includes('water') && (m.cal > 0 || m.protein > 0 || m.fiber > 0)) {
+      changed = true;
+      return { ...m, cal:0, protein:0, fiber:0, carbs:0, fat:0,
+        items: m.items ? m.items.map(i => ({...i, cal:0, protein:0, fiber:0, carbs:0, fat:0})) : m.items };
+    }
+    return m;
+  });
+  if (changed) { DB.set('meals', meals); console.log('Water entries migrated'); }
+}
+
 initSettings();
 initReminders();
+migrateWaterEntries();
 renderQuickPickGrid();
 renderToday();
 
